@@ -92,6 +92,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    uint64_t time_sleeping;             /* Tiempo que duerme un thread*/
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -125,6 +126,8 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void insert_in_waiting_list(int64_t ticks);
+void remover_thread_durmiente(int64_t ticks);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

@@ -20,6 +20,8 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+static struct list wait_sleeping_list;
+
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -92,6 +94,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+  list_init (&wait_sleeping_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -313,6 +317,60 @@ thread_yield (void)
   schedule ();
   intr_set_level (old_level);
 }
+
+/* Inserta un thread en la lista de espera */
+void 
+insert_in_waiting_list(int64_t ticks)
+{
+
+  //Deshabilitamos interrupciones
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  /* Remover el thread actual de "ready_list" e insertarlo en "lista_espera"
+  Cambiar su estatus a THREAD_BLOCKED, y definir su tiempo de expiracion */
+  
+  struct thread *thread_actual = thread_current ();
+  thread_actual->time_sleeping = timer_ticks() + ticks;
+  
+  /*Donde TIEMPO_DORMIDO es el atributo de la estructura thread que usted
+    definió como paso inicial*/
+  
+  list_push_back(&wait_sleeping_list, &thread_actual->elem);
+  thread_block();
+
+  //Habilitar interrupciones
+  intr_set_level (old_level);
+}
+
+/* Remueve un thread de la lista de espera */
+
+void 
+remover_thread_durmiente(int64_t ticks)
+{
+
+  /*Cuando ocurra un timer_interrupt, si el tiempo del thread ha expirado
+  Se mueve de regreso a ready_list, con la funcion thread_unblock*/
+  
+  //Iterar sobre "lista_espera"
+  struct list_elem *iter = list_begin(&wait_sleeping_list);
+  while(iter != list_end(&wait_sleeping_list) ){
+    struct thread *thread_lista_espera = list_entry(iter, struct thread, elem);
+    
+    /*Si el tiempo global es mayor al tiempo que el thread permanecía dormido
+      entonces su tiempo de dormir ha expirado*/
+    
+    if(ticks >= thread_lista_espera->time_sleeping){
+      //Lo removemos de "lista_espera" y lo regresamos a ready_list
+      iter = list_remove(iter);
+      thread_unblock(thread_lista_espera);
+    }else{
+      //Sino, seguir iterando
+      iter = list_next(iter);
+    }
+  }
+}
+
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
