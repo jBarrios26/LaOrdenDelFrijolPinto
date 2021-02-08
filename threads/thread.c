@@ -398,7 +398,16 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  ASSERT (new_priority >= 0);
+  ASSERT (new_priority < 64);
+
   thread_current ()->priority = new_priority;
+
+  const struct thread *cur = running_thread();
+
+  if (cur->priority < new_priority){
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -444,6 +453,7 @@ void
 sort_ready_list(void)
 {
   list_sort (&ready_list, priority_value_less, NULL);  
+  list_reverse (&ready_list);
 }
 
 /* */
