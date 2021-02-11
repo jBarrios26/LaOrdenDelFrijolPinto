@@ -77,6 +77,10 @@ static tid_t allocate_tid (void);
 static void sort_ready_list(void);
 static bool priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux);
 
+struct thread *get_max_priority_thread();
+static bool value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
+void print_list(struct list *a);
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -209,6 +213,10 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if (thread_current ()->priority < t->priority){
+    thread_yield();
+  }
+
   return tid;
 }
 
@@ -248,6 +256,7 @@ thread_unblock (struct thread *t)
   list_insert_ordered(&ready_list, &t->elem, priority_value_less, NULL);
   //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+
   intr_set_level (old_level);
 }
 
@@ -376,6 +385,34 @@ remover_thread_durmiente(int64_t ticks)
   }
 }
 
+/*
+  Gets the max priority thread in ready list.
+*/
+struct thread 
+*get_max_priority_thread()
+{
+  struct list_elem *element = list_max(&ready_list, value_less, NULL);
+  struct thread *max_priority_thread = list_entry(element, struct thread, elem);
+  return max_priority_thread;
+}
+
+void print_list(struct list *a){
+  struct list_elem *iter = list_begin(a);
+  while (iter != list_end(a)){
+    struct thread *elemento = list_entry(iter, struct thread, elem);
+    printf("%s p: %d\n", elemento->name, elemento->priority);
+    iter = list_next(iter);
+  }
+}
+
+static bool 
+value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+  const struct thread *a = list_entry (a_, struct thread, elem);
+  const  struct thread *b = list_entry (b_, struct thread, elem);
+
+  return a->priority < b->priority;
+}
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
@@ -401,12 +438,14 @@ thread_set_priority (int new_priority)
   ASSERT (new_priority >= 0);
   ASSERT (new_priority < 64);
 
-  thread_current ()->priority = new_priority;
+  const struct thread *cur = thread_current ();
+  const struct thread *max_priority_thread = get_max_priority_thread();
 
-  const struct thread *cur = running_thread();
-
-  if (cur->priority < new_priority){
-    thread_yield();
+  if (new_priority < max_priority_thread->priority){
+    thread_current ()->priority = new_priority;
+    thread_yield();   
+  }else{
+    thread_current ()->priority = new_priority;
   }
 }
 
@@ -463,7 +502,7 @@ priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void
   const struct thread *a = list_entry (a_, struct thread, elem);
   const  struct thread *b = list_entry (b_, struct thread, elem);
 
-  return a->priority <  b->priority;
+  return a->priority >  b->priority;
 }
 /* Idle thread.  Executes when no other thread is ready to run.
    The idle thread is initially put on the ready list by
