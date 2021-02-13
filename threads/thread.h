@@ -94,6 +94,10 @@ struct thread
     struct list_elem elem;              /* List element. */
     int64_t time_sleeping;             /* Tiempo que duerme un thread*/
 
+    /* Synchonization variables */
+    int donated_priority;              /* The highest priority donated. (starts at 0) */
+    struct list waiting_lock_list;     /* Threads that are holding the locks that this thread needs */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -141,4 +145,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+void thread_list_print(struct list *thread_list); 
+bool value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
+bool priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux);
 #endif /* threads/thread.h */

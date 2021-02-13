@@ -75,11 +75,8 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
 static void sort_ready_list(void);
-static bool priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux);
+static struct thread *get_max_priority_thread(void);
 
-struct thread *get_max_priority_thread();
-static bool value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
-void print_list(struct list *a);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -388,7 +385,7 @@ remover_thread_durmiente(int64_t ticks)
 /*
   Gets the max priority thread in ready list.
 */
-struct thread 
+static struct thread 
 *get_max_priority_thread()
 {
   struct list_elem *element = list_max(&ready_list, value_less, NULL);
@@ -396,16 +393,23 @@ struct thread
   return max_priority_thread;
 }
 
-void print_list(struct list *a){
+/*
+  Prints all the thread that are contained in thread_list. 
+  Each thread is printed in the following format:
+    <thread_id> | <thread_name> | <thread_status> | <thread_priority> 
+*/
+void 
+thread_list_print(struct list *a){
   struct list_elem *iter = list_begin(a);
-  while (iter != list_end(a)){
-    struct thread *elemento = list_entry(iter, struct thread, elem);
-    printf("%s p: %d\n", elemento->name, elemento->priority);
+  while (iter != list_end (a))
+  {
+    struct thread *thread = list_entry(iter, struct thread, elem);
+    printf("%d | %s | %d | %d \n", thread->tid, thread->name, thread->status, thread->priority);
     iter = list_next(iter);
   }
 }
 
-static bool 
+bool 
 value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
 {
   const struct thread *a = list_entry (a_, struct thread, elem);
@@ -437,8 +441,6 @@ thread_set_priority (int new_priority)
 {
   ASSERT (new_priority >= 0);
   ASSERT (new_priority < 64);
-
-  const struct thread *cur = thread_current ();
   const struct thread *max_priority_thread = get_max_priority_thread();
 
   if (new_priority < max_priority_thread->priority){
@@ -496,7 +498,7 @@ sort_ready_list(void)
 }
 
 /* */
-static bool 
+bool 
 priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
 {
   const struct thread *a = list_entry (a_, struct thread, elem);
@@ -590,9 +592,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->donated_priority = 0;
 
+  list_init(&t->waiting_lock_list);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
+  
   intr_set_level (old_level);
 }
 
