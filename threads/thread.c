@@ -251,9 +251,9 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_insert_ordered(&ready_list, &t->elem, priority_value_less, NULL);
+  
   //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
-
   intr_set_level (old_level);
 }
 
@@ -323,8 +323,10 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, priority_value_less, NULL);
+
   cur->status = THREAD_READY;
+  
   schedule ();
   intr_set_level (old_level);
 }
@@ -404,9 +406,10 @@ thread_list_print(struct list *a){
   while (iter != list_end (a))
   {
     struct thread *thread = list_entry(iter, struct thread, elem);
-    printf("%d | %s | %d | %d \n", thread->tid, thread->name, thread->status, thread->priority);
+    printf("( %s | %d) -> ", thread->name, thread->priority);
     iter = list_next(iter);
   }
+  printf("\n");
 }
 
 bool 
@@ -442,8 +445,7 @@ thread_set_priority (int new_priority)
   ASSERT (new_priority >= 0);
   ASSERT (new_priority < 64);
   const struct thread *max_priority_thread = get_max_priority_thread();
-
-  if (new_priority < max_priority_thread->priority){
+  if ((new_priority < max_priority_thread->priority) || new_priority == 0){
     thread_current ()->priority = new_priority;
     thread_yield();   
   }else{
@@ -504,7 +506,7 @@ priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void
   const struct thread *a = list_entry (a_, struct thread, elem);
   const  struct thread *b = list_entry (b_, struct thread, elem);
 
-  return a->priority >  b->priority;
+  return a->priority <  b->priority;
 }
 /* Idle thread.  Executes when no other thread is ready to run.
    The idle thread is initially put on the ready list by
@@ -594,7 +596,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->donated_priority = 0;
 
-  list_init(&t->waiting_lock_list);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   
@@ -622,10 +623,11 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
+  
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page

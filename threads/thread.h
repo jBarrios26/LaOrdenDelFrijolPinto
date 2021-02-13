@@ -96,7 +96,7 @@ struct thread
 
     /* Synchonization variables */
     int donated_priority;              /* The highest priority donated. (starts at 0) */
-    struct list waiting_lock_list;     /* Threads that are holding the locks that this thread needs */
+    struct thread *lock_holder;        /* Thread that is holding the needed lock */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
