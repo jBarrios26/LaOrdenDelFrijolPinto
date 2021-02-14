@@ -68,14 +68,14 @@ test_priority_fifo (void)
   ASSERT (lock.holder == NULL);
 
   cnt = 0;
-  for (; output < op; output++) 
-    {
+  for (; output < op; output++){
       struct simple_thread_data *d;
 
       ASSERT (*output >= 0 && *output < THREAD_CNT);
       d = data + *output;
-      if (cnt % THREAD_CNT == 0)
+      if (cnt % THREAD_CNT == 0){
         printf ("(priority-fifo) iteration:");
+      }
       printf (" %d", d->id);
       if (++cnt % THREAD_CNT == 0)
         printf ("\n");
