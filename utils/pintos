@@ -264,6 +264,7 @@ sub set_disk {
 sub find_disks {
   # Find kernel, if we don't already have one.
   if (!exists $parts{KERNEL}) {
+<<<<<<< HEAD
     
     # Change this before pushing to GitHub
     # Jorge
@@ -275,6 +276,9 @@ sub find_disks {
     # Juampa
     #my $name = find_file ('/home/j1pa864/ug/cc7/laOrdenDelFrijolPinto/threads/build/kernel.bin');
 
+=======
+    my $name = find_file ('/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/threads/build/kernel.bin');
+>>>>>>> 01bc48d05305c72f6bc224aca680a165693ce9af
     die "Cannot find kernel\n" if !defined $name;
     do_set_part ('KERNEL', 'file', $name);
   }

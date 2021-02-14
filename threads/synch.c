@@ -32,6 +32,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -66,12 +67,15 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+  
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_insert_ordered(&sema->waiters, &thread_current ()->elem, priority_value_less, NULL);
       thread_block ();
+
     }
   sema->value--;
+
   intr_set_level (old_level);
 }
 
@@ -113,10 +117,19 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
+  
+  struct thread *next_thread;
   if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+  {
+    // thread_list_print(&sema->waiters);
+    next_thread = list_entry (list_pop_back (&sema->waiters),
+                                struct thread, elem);
+    thread_unblock (next_thread);
+  }
   sema->value++;
+  if (thread_current ()->priority < next_thread->priority)
+    thread_yield();
+  
   intr_set_level (old_level);
 }
 
@@ -196,6 +209,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  thread_current ()->lock_holder = lock->holder;
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -320,6 +334,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
 }
+
 
 /* Wakes up all threads, if any, waiting on COND (protected by
    LOCK).  LOCK must be held before calling this function.
