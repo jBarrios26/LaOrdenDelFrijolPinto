@@ -48,4 +48,7 @@ void cond_broadcast (struct condition *, struct lock *);
    reference guide for more information.*/
 #define barrier() asm volatile ("" : : : "memory")
 
+
+void donate_priority(struct thread *donor, struct lock *lock);
+void return_priority(struct lock *lock);
 #endif /* threads/synch.h */

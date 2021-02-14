@@ -210,6 +210,8 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   thread_current ()->lock_holder = lock->holder;
+
+  donate_priority(thread_current ()->lock_holder, lock);
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -245,8 +247,10 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  return_priority(lock);
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -349,4 +353,40 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+
+/*
+  Donor thread shares its priority to the thead that is holding the lock.
+  If another high priority thread has already donated to lock holder, the highest priority stays. 
+
+  Donor threads also donates its priority to locks that lock holder it's waiting
+*/
+void 
+donate_priority(struct thread *donor, struct lock *lock)
+{
+  struct thread *lock_holder = lock->holder;
+  
+  if (lock_holder == NULL)
+    return;
+
+  if (lock_holder->donated_priority == 0 && lock_holder->priority < donor->priority )
+  {
+    lock_holder->original_priority = lock_holder->priority;
+    lock_holder->priority = donor->priority;
+    lock_holder->donated_priority = donor->priority;
+  }
+}
+
+/* 
+  Returns to the original priority.
+*/
+void 
+return_priority(struct lock *lock)
+{
+  struct thread *lock_holder =lock->holder;
+
+  lock_holder->priority = lock_holder->original_priority;
+  lock_holder->original_priority = 0;
+
 }
