@@ -445,11 +445,16 @@ thread_set_priority (int new_priority)
   ASSERT (new_priority >= 0);
   ASSERT (new_priority < 64);
   const struct thread *max_priority_thread = get_max_priority_thread();
+  struct thread *cur = thread_current();
+  if (cur-> donated_priority != 64){
+        cur-> original_priority= new_priority;
+        return;
+    }
   if ((new_priority < max_priority_thread->priority) || new_priority == 0){
     thread_current ()->priority = new_priority;
-    thread_yield();   
+    thread_yield();  
   }else{
-    thread_current ()->priority = new_priority;
+    thread_current ()->priority = new_priority; 
   }
 }
 
@@ -594,8 +599,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->original_priority = 0;
+  t->original_priority = 64;
   t->lock_holder = NULL;
+  t->donated_priority = 64;
+  
 
 
   old_level = intr_disable ();

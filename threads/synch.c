@@ -387,6 +387,7 @@ return_priority(struct lock *lock)
   struct thread *lock_holder =lock->holder;
 
   lock_holder->priority = lock_holder->original_priority;
-  lock_holder->original_priority = 0;
+  lock_holder->original_priority = 64;
+  lock_holder->donated_priority = 64;
 
 }
