@@ -444,7 +444,9 @@ thread_set_priority (int new_priority)
 {
   ASSERT (new_priority >= 0);
   ASSERT (new_priority < 64);
+  
   const struct thread *max_priority_thread = get_max_priority_thread();
+
   if ((new_priority < max_priority_thread->priority) || new_priority == 0){
     thread_current ()->priority = new_priority;
     thread_yield();   
@@ -506,7 +508,7 @@ priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void
   const struct thread *a = list_entry (a_, struct thread, elem);
   const  struct thread *b = list_entry (b_, struct thread, elem);
 
-  return a->priority <  b->priority;
+  return a->priority <=  b->priority;
 }
 /* Idle thread.  Executes when no other thread is ready to run.
    The idle thread is initially put on the ready list by
