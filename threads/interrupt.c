@@ -404,6 +404,7 @@ unexpected_interrupt (const struct intr_frame *f)
   if ((n & (n - 1)) == 0)
     printf ("Unexpected interrupt %#04x (%s)\n",
     f->vec_no, intr_names[f->vec_no]);
+    debug_backtrace ();
 }
 
 /* Dumps interrupt frame F to the console, for debugging. */

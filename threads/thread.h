@@ -92,12 +92,14 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    int64_t time_sleeping;             /* Tiempo que duerme un thread*/
+    int64_t time_sleeping;              /* Tiempo que duerme un thread*/
 
     /* Synchonization variables */
-    int donated_priority;              /* The highest priority donated. (starts at 0) */
-    int original_priority;
-    struct thread *lock_holder;        /* Thread that is holding the needed lock */
+               /* All the donations that the thread has received. Sorted by priority from lowest to highest */
+    int original_priority; 
+    struct lock *waiting; 
+    struct list locks; 
+    struct list donations; 
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
