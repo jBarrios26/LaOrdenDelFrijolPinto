@@ -536,7 +536,7 @@ bool
 priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
 {
   const struct thread *a = list_entry (a_, struct thread, elem);
-  const  struct thread *b = list_entry (b_, struct thread, elem);
+  const struct thread *b = list_entry (b_, struct thread, elem);
 
   return a->priority <= b->priority;
 }

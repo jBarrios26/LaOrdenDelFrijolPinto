@@ -97,7 +97,6 @@ struct thread
 
     /* Synchonization variables */
                /* All the donations that the thread has received. Sorted by priority from lowest to highest */
-    int original_priority; 
     struct lock *waiting; 
     struct list locks; 
     struct list donations; 

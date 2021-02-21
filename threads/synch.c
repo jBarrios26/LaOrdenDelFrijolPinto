@@ -34,6 +34,7 @@
 #include "malloc.h"
 static int ids = 0;
 bool donations_value_less(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED);
+bool sema_value_less(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED);
 int search_lock_donated_priority (struct list *donations, struct lock *lock);
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -123,13 +124,12 @@ sema_up (struct semaphore *sema)
   struct thread *next_thread;
   if (!list_empty (&sema->waiters)) 
   {
-    // thread_list_print(&sema->waiters);
-    next_thread = list_entry (list_pop_back (&sema->waiters),
-                                struct thread, elem);
+	
+    next_thread = list_entry (list_pop_back (&sema->waiters), struct thread, elem);
     thread_unblock (next_thread);
   }
   sema->value++;
-  if (thread_current ()->priority < next_thread->priority)
+  if (thread_current()->priority < next_thread->priority)
     thread_yield();
   
   intr_set_level (old_level);
@@ -426,7 +426,10 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+ 	list_push_back (&cond->waiters, &waiter.elem);
+    //list_push_front (&cond->waiters, &waiter.elem);
+ // list_insert_ordered(&cond->waiters, &waiter.elem, priority_value_less, NULL);
+	
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -442,20 +445,24 @@ cond_wait (struct condition *cond, struct lock *lock)
 void
 cond_signal (struct condition *cond, struct lock *lock UNUSED) 
 {
-  ASSERT (cond != NULL);
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (lock_held_by_current_thread (lock));
+	ASSERT (cond != NULL);
+  	ASSERT (lock != NULL);
+  	ASSERT (!intr_context ());
+	ASSERT (lock_held_by_current_thread (lock));
 
+	void * aux = NULL;
+	// if (is_sorted(list_front(&cond->waiters), list_back(&cond->waiters), priority_value_less, aux))
+	// 	printf("is sorted");
+	
+	if (!list_empty (&cond->waiters)) {
+		// ordenar lista primero
 
-  if (!list_empty (&cond->waiters)) {
-    //ordenar lista primero
-    /*list_insert_ordered (struct list *list, struct list_elem *elem,
-                     list_less_func *less, void *aux)
-    list_sort (struct list *list, list_less_func *less, void *aux)*/
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
-  }
+		list_sort (&cond->waiters, sema_value_less, aux);
+		
+		// list_reverse(&cond->waiters);
+
+		sema_up (&list_entry (list_pop_back (&cond->waiters), struct semaphore_elem, elem)->semaphore);
+	}
 }
 
 
@@ -520,4 +527,16 @@ donations_value_less(const struct list_elem* a, const struct list_elem* b, void*
   const int a_member = (list_entry(a, struct thread, elem))->priority;
   const int b_member = (list_entry(b, struct thread, elem))->priority;
   return a_member < b_member;
+}
+
+bool 
+sema_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+  struct semaphore_elem *a = list_entry (a_, struct semaphore_elem, elem);
+  struct semaphore_elem *b = list_entry (b_, struct semaphore_elem, elem);
+
+  const struct thread *t1 = list_entry (list_front(&a->semaphore.waiters), struct thread, elem);
+  const struct thread *t2 = list_entry (list_front(&b->semaphore.waiters), struct thread, elem);
+
+  return t1->priority <= t2->priority;
 }
