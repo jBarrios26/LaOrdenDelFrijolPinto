@@ -359,36 +359,18 @@ sub cyl_sectors {
 # Makes sure that the loader is a reasonable size.
 sub read_loader {
   my ($name) = @_;
-<<<<<<< HEAD
-<<<<<<< HEAD
   
   # Change this before pushing to GitHub
-=======
-    # Change this before pushing to GitHub
->>>>>>> ae531c1f8458d2ac6da3e47ce91c77e4cd653a4e
   # Jorge
-  # $name = find_file ("/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/threads/build/loader.bin") 
+  # $name = find_file ("/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/threads/build/loader.bin") ;
   # Gizeh
-  # $name = find_file ("/home/.../LaOrdenDelFrijolPinto/threads/build/loader.bin") 
+  # $name = find_file ("/home/.../LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
   # Chato
-  # $name =  find_file ("/home/.../LaOrdenDelFrijolPinto/threads/build/loader.bin") 
+  # $name =  find_file ("/home/student/LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
   # Juampa
-  $name = find_file ("/home/j1pa864/ug/cc7/laOrdenDelFrijolPinto/threads/build/loader.bin") 
-<<<<<<< HEAD
+  $name = find_file ("/home/j1pa864/ug/cc7/laOrdenDelFrijolPinto/threads/build/loader.bin") if !defined $name;
+  die "Cannot find loader, please go to /utils/Pintos.pm and see if your user is being used.\n" if !defined $name;
   
-  if !defined $name;
-    die "Cannot find loader\n" 
-  if !defined $name;
-=======
-  $name = find_file ("/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/threads/build/loader.bin") if !defined $name;
-  die "Cannot find loader\n" if !defined $name;
->>>>>>> 01bc48d05305c72f6bc224aca680a165693ce9af
-=======
-  if !defined $name;
-    die "Cannot find loader, please go to /utils/Pintos.pm and see if your user is being used.\n" 
-  if !defined $name;
->>>>>>> ae531c1f8458d2ac6da3e47ce91c77e4cd653a4e
-
   my ($handle);
   open ($handle, '<', $name) or die "$name: open: $!\n";
   -s $handle == $LOADER_SIZE || -s $handle == 512
