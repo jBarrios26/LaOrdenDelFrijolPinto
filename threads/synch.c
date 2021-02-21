@@ -235,6 +235,7 @@ int print_donos(struct list *donations)
 void
 lock_acquire (struct lock *lock)
 {
+  int cont = 0;
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
@@ -245,33 +246,40 @@ lock_acquire (struct lock *lock)
   old_level = intr_disable ();
   struct thread *cur = thread_current ();
   struct thread *holder = lock->holder;
+  struct lock *lock_holder = lock;
   
-  if (holder != NULL)
-  {
-    if (holder->priority < cur->original_priority)
+  while(holder != NULL && cont < 8){
+    if (holder->priority < cur->priority)
     {
-      struct list_elem *has_donation = find_lock (&holder->donations, lock);
+      struct list_elem *has_donation = find_lock (&holder->donations, lock_holder);
       if (has_donation == NULL)
       {
         struct donation *donor = malloc (sizeof (struct donation));
         donor->priority = cur->priority;
-        donor->lock = lock;
-
+        donor->lock = lock_holder;
         list_insert_ordered (&holder->donations, &donor->elem,donations_value_less, NULL);
         holder->priority = donor->priority;
-        lock->donated = donor;
+        lock_holder->donated = donor;
       }else {
         struct donation *previous = list_entry (has_donation, struct donation, elem);
         if (previous->priority < cur->priority)
         {
           holder->priority = cur->priority;
           previous->priority = cur->priority;
+          list_sort(&holder->donations,donations_value_less,NULL);
         }
       }
     }
-    cur->waiting = lock;
+    if(holder->waiting != NULL){
+      lock_holder = holder->waiting;
+       holder = holder->waiting->holder;
+    }else{
+      holder = NULL;
+      lock_holder = NULL;
+    }
+    cont++;
   }
-  
+  cur->waiting = lock;
   /* if (holder != NULL){
     if (holder->priority < cur->priority)
     {
