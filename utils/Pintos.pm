@@ -367,9 +367,9 @@ sub read_loader {
   # Gizeh
   # $name = find_file ("/home/.../LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
   # Chato
-  # $name =  find_file ("/home/student/LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
+  $name =  find_file ("/home/student/LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
   # Juampa
-  $name = find_file ("/home/j1pa864/ug/cc7/laOrdenDelFrijolPinto/threads/build/loader.bin") if !defined $name;
+  # $name = find_file ("/home/j1pa864/ug/cc7/laOrdenDelFrijolPinto/threads/build/loader.bin") if !defined $name;
   
   die "Cannot find loader, please go to /utils/Pintos.pm and see if your user is being used.\n" if !defined $name;
 
