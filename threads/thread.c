@@ -485,14 +485,6 @@ thread_set_nice (int nice UNUSED)
   }*/
 }
 
-/*Checks is the current thread has the highest priority of all*/
-/*bool
-is_highest_priority( )
-{
-  return 0;
-}
-*/
-
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
@@ -504,16 +496,17 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  int current_system__load_avg =0;
+  return round(100*current_system__load_avg);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
+  /
   /* Not yet implemented. */
-  return 0;
+  return round(10 * thread_current ()->recent_cpu);
 }
 
 /* Sort the ready thread list by priority */
