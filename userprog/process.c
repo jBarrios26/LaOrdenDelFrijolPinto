@@ -28,7 +28,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy, *args;
+  char *fn_copy, *name, *save_ptr, *args;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -37,12 +37,10 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
   /* Get filename */ 
-  file_name = strtok_r (file_name, " ", &args);
-
+  name = strtok_r (fn_copy, " ", &save_ptr);
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (name, PRI_DEFAULT, start_process,save_ptr);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -56,7 +54,7 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
+ 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -65,7 +63,7 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
+  palloc_free_page (file_name_);
   if (!success) 
     thread_exit ();
 
@@ -91,7 +89,11 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  while (true)
+  {
+    thread_yield();
+  }
+  
 }
 
 /* Free the current process's resources. */
@@ -212,15 +214,13 @@ bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
   struct thread *t = thread_current ();
-  char *file_name_, *token, *save_ptr, *name;
+  char *file_name_ = (char*) file_name;
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
   int i;
 
-  strcpy(file_name_,file_name);
-  name = strtok_r (file_name_, " ", &save_ptr);
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -228,10 +228,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (name);
+  file = filesys_open (t->name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", t->name);
       goto done; 
     }
 
@@ -244,7 +244,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", t->name);
       goto done; 
     }
 
@@ -308,7 +308,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp, file_name))
+  if (!setup_stack (esp, file_name_))
     goto done;
 
   /* Start address. */
@@ -436,8 +436,8 @@ static bool
 setup_stack (void **esp, char *args) 
 {
   uint8_t *kpage;
+  char *token, *save_ptr;
   bool success = false;
-
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -450,7 +450,64 @@ setup_stack (void **esp, char *args)
   
   /* SETUP args in stack*/
   int argc = 0;
+  char *reverse_args, *aux = "";
+  reverse_args = palloc_get_page(0);
+  aux = palloc_get_page(0);
+  if (reverse_args == NULL || aux == NULL){
+    success = false;
+    palloc_free_page(reverse_args);
+    palloc_free_page(aux);
+    return success;
+  }
+  for (token = strtok_r (args, " ", &save_ptr); token != NULL;
+        token = strtok_r (NULL, " ", &save_ptr))
+        {
+          strlcpy(aux, token, PGSIZE);
+          strlcat(aux, " ", PGSIZE);
+          strlcat(aux, reverse_args, PGSIZE);
+          strlcpy(reverse_args, aux, PGSIZE);
+        }
+  
+  void *addresses[argc];
+  char *save;
 
+  // PUSH strings of args to the stack. 
+  for (token = strtok_r (reverse_args, " ", &save_ptr); token != NULL;
+        token = strtok_r (NULL, " ", &save_ptr))
+  {
+    *esp-= strlen(token)+1;
+    memcpy(*esp, token, strlen(token)+1);
+    addresses[argc++] = *esp;
+  }
+
+ 
+  // Align memory.
+  int mem_align =  (-1 * (int)*esp) % 4;
+  *esp -= mem_align;
+  memset(*esp, 0, mem_align);
+
+  // Write argv addresses.
+  *esp -= 4; 
+  memset (*esp, 0, 4); 
+
+  int i = 0; 
+  while (i < argc)
+  {
+    *esp -= sizeof(char *);
+    memcpy(*esp,  &addresses[i++], sizeof(char*));
+  }
+
+  // push argv[0] address
+  void *argv0 = *esp;
+  *esp -= sizeof(char**);
+  memcpy(*esp, &argv0, sizeof(char**));
+
+  *esp-=sizeof(argc);
+  memcpy(*esp, &argc, 4);
+
+  *esp -= sizeof(void*);
+  memset(*esp, 0, sizeof(void*));
+  hex_dump(PHYS_BASE-80,*esp-56,80, 1);
   return success;
 }
 
