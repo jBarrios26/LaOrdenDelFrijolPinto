@@ -504,7 +504,6 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  /
   /* Not yet implemented. */
   return round(10 * thread_current ()->recent_cpu);
 }
