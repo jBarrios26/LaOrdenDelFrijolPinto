@@ -31,6 +31,7 @@ test_priority_condvar (void)
       char name[16];
       snprintf (name, sizeof name, "priority %d", priority);
       thread_create (name, priority, priority_condvar_thread, NULL);
+
     }
 
   for (i = 0; i < 10; i++) 

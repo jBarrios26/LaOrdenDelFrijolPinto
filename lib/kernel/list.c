@@ -349,6 +349,7 @@ is_sorted (struct list_elem *a, struct list_elem *b,
   return true;
 }
 
+
 /* Finds a run, starting at A and ending not after B, of list
    elements that are in nondecreasing order according to LESS
    given auxiliary data AUX.  Returns the (exclusive) end of the

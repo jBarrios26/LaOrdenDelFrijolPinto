@@ -88,7 +88,14 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    int64_t time_sleeping;             /* Tiempo que duerme un thread*/
+    int64_t time_sleeping;              /* Tiempo que duerme un thread*/
+
+    /* Synchonization variables */
+               /* All the donations that the thread has received. Sorted by priority from lowest to highest */
+    struct lock *waiting; 
+    struct list locks; 
+    struct list donations; 
+
 
     /* Synchonization variables */
     int donated_priority;              /* The highest priority donated. (starts at 0) */
