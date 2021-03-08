@@ -5,7 +5,15 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 
+typedef int pid_t;
+
+void halt(void);
+void exit(int);
+int wait (pid_t pid);
+
 static void syscall_handler (struct intr_frame *);
+
+
 
 void
 syscall_init (void) 
@@ -13,15 +21,27 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-void 
-halt(void)
-{
-  shutdown_power_off();
-}
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
   printf ("system call!\n");
   thread_exit ();
+}
+
+
+void 
+halt(void)
+{
+  shutdown_power_off();
+}
+
+void exit(int status){
+  printf("%d exit \n", status);
+  if(thread_current()-> status)
+  thread_exit();
+}
+
+int wait (pid_t pid){
+
 }
