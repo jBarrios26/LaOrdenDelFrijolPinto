@@ -28,15 +28,17 @@ syscall_init (void)
 
 
 /*
-  Se encarga de manejar las llamadas a los syscalls: 
-  El intr_frame tiene los argumentos y el codigo del syscall. 
+  Handles the syscalls, the input is an interrupt frame that contains the stack. 
+  The intr_frame contains the SYS_CODE and up to three SYSCALL arguments.  
 
   f->esp = SYS_CODE;
   f->esp + 1 = arg1;
   f->esp + 2 = arg2; 
   f->esp + 3 = arg3; 
 
-  El mayor número de argumentos que tiene un SYSCALL es de 3.
+  Each argument is a pointer, so before  using its value the fuctions has to dereference the pointer. 
+  
+  ** SEE SYS_EXIT for an example.** 
 
 */
 static void
@@ -49,6 +51,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       printf("HALT");
       break;
     case SYS_EXIT:
+      int status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
+
+      // TODO: Check for valid pointers.
+      // EXIT does not need to check if pointer is valid because it's argument is not a pointer. 
       printf("EXIT");
       break;
     case SYS_EXEC:
