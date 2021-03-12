@@ -522,8 +522,8 @@ setup_stack (void **esp, char *args, char *name)
   *esp -= sizeof(void*);
   start_stack += sizeof(void*); 
   memset(*esp, 0, sizeof(void*));
-  printf (" actual %x, start %x\n",*esp, start_stack );
-  hex_dump(PHYS_BASE-80,*esp-28,80, 1);
+
+  hex_dump(PHYS_BASE - (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), *esp, (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), true);
   return success;
 }
 

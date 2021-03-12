@@ -1,10 +1,17 @@
+#include "userprog/pagedir.h"
+#include "userprog/process.h"
 #include "userprog/syscall.h"
+
 #include <stdio.h>
 #include <syscall-nr.h>
+
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+
 
 static void syscall_handler (struct intr_frame *);
+static bool verify_pointer(void *pointer); 
 
 static void halt(void);
 static void exit(int status);
@@ -45,20 +52,34 @@ static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
   // Revisar que el puntero sea el correcto.
+  int status;
+  char* cmd_name;
+
+  if (!verify_pointer(f->esp))
+  {
+    printf("Error en el puntero del stack");
+    exit(-1);
+  }
   switch (*(int*)f->esp)
   {
     case SYS_HALT:
       printf("HALT");
       break;
     case SYS_EXIT:
-      int status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
-
+      status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
       // TODO: Check for valid pointers.
       // EXIT does not need to check if pointer is valid because it's argument is not a pointer. 
-      printf("EXIT");
+      printf("EXIT STATUS %d", status);
+      
+      process_exit();
       break;
     case SYS_EXEC:
       printf("EXEC");
+      // Get the name of the new process, the pointer is stored in esp + 1 (first argument of SYS_EXEC),
+      // ((int*)f->esp +1) returns the address of the argument, then need to dereference to then cast to char*.
+      cmd_name = (char*)(*((int*)f->esp + 1)); 
+      printf("%s", cmd_name);
+
       break;
     case SYS_WAIT:
       printf("WAIT");
@@ -92,4 +113,26 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
   }
   thread_exit ();
+}
+
+
+/*
+  Checks if pointer meets this two conditions: 
+    1. Pointer is between PHYS_BASE and 0x08048000
+    2. The pointer is allocated in thread page.
+
+*/
+static bool 
+verify_pointer(void *pointer)
+{
+  struct thread *cur = thread_current(); 
+  bool valid = true;
+
+  if (is_user_vaddr(pointer) || pointer > (void*)0x08048000)
+    valid = false;
+  
+  if (pagedir_get_page(cur->pagedir, pointer) == NULL)
+    valid = false;
+  
+  return valid; 
 }
