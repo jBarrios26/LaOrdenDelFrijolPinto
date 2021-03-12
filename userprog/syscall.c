@@ -86,7 +86,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
       printf("%s", cmd_name);
-
+      // f->eax = exec(cmd_name);
       break;
     case SYS_WAIT:
       printf("WAIT");
@@ -165,14 +165,14 @@ exec(const char* cmd_line)
   // Create the process, start to load the new process and returns the TID (PID).
   child = process_execute(cmd_line);
   // Use a monitor that  allows the child to message his parent.
-  lock_acquire(&cur->lock_child);
+  lock_acquire(&cur->process_lock);
   // If child hasn't load then wait. To avoid race conditions.
-  while(cur->child_load)
-    cond_wait(&cur->msg_parent, &cur->lock_child);
+  while(!cur->child_load)
+    cond_wait(&cur->msg_parent, &cur->process_lock);
   // Check the exec_status of child.
   if (!cur->child_status)
     child = -1;
-  lock_release(&cur->lock_child);
+  lock_release(&cur->process_lock);
   return child;
 }
 

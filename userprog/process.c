@@ -56,7 +56,7 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
- 
+  struct thread* cur = thread_current();
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -66,8 +66,28 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+
+  /* Need to check if load was successful and signal the parent thread.
+     Need to use the synchronization variables defined on the parent thread.
+  */
+
+  struct thread* parent = get_thread(cur->parent);
+  
+  /* Acquire lock from parent to modify state variables and signal him.*/
+  lock_acquire(&parent->process_lock);
   if (!success) 
+  {
+    parent->child_load = true;
+    cond_signal(&parent->msg_parent, &parent->process_lock);
     thread_exit ();
+  }else
+  {
+    parent->child_status = true;
+    parent->child_load = true;
+    parent->child = cur;
+    cond_signal(&parent->msg_parent, &parent->process_lock);
+  }
+  lock_release(&parent->process_lock);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

@@ -111,7 +111,7 @@ struct thread
     struct thread *child;
 
     struct condition msg_parent;
-    struct lock lock_child;
+    struct lock process_lock;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
