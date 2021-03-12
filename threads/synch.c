@@ -214,18 +214,6 @@ struct list_elem *find_lock (struct list *donations, struct lock *lock)
 }
 
 
-int print_donos(struct list *donations)
-{
-  struct list_elem *iter = list_begin(donations);
-  while (iter != list_end (donations))
-  {
-    struct donation *d = list_entry(iter, struct donation, elem);
-    printf ("%d\n", d->priority);
-    iter = list_next(iter);
-  }
-  return -1;
-  
-}
 
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
@@ -252,7 +240,7 @@ lock_acquire (struct lock *lock)
   struct thread *cur = thread_current ();
   struct thread *holder = lock->holder;
   struct lock *lock_holder = lock;
-  
+   
   while(holder != NULL && cont < 8){
     if (holder->priority < cur->priority)
     {

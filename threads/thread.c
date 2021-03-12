@@ -74,7 +74,6 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-static void sort_ready_list(void);
 static struct thread *get_max_priority_thread(void);
 
 
@@ -473,6 +472,22 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
+/*
+  Search a thread by TID in all threads list.
+*/
+struct thread
+*get_thread(tid_t tid)
+{
+  struct list_elem *iter = list_begin(&all_list);
+  while (iter != list_end(&all_list))
+  {
+    struct thread *t = list_entry(iter, struct thread, allelem); 
+    if (t->tid == tid)
+      return t;
+    iter = list_next(iter);
+  }
+  return NULL;
+}
 
 /*Cambia el valor de nice del thred actual por new_nice 
   y recalcula la prioridad del thread basado en este nuevo valor. 
@@ -524,13 +539,6 @@ thread_get_recent_cpu (void)
   return 0;
 }
 
-/* Sort the ready thread list by priority */
-void 
-sort_ready_list(void)
-{
-  list_sort (&ready_list, priority_value_less, NULL);  
-  list_reverse (&ready_list);
-}
 
 /* */
 bool 
@@ -621,6 +629,8 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
+  struct thread *cur = thread_current();
+
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
@@ -629,9 +639,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->original_priority = priority;
   t->waiting = NULL;
+
+  t->parent = cur->tid;
   list_init(&t->locks);
   list_init(&t->donations);
 
+  lock_init(&t->lock_child);
+  cond_init(&t->msg_parent);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

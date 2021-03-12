@@ -71,13 +71,19 @@ syscall_handler (struct intr_frame *f UNUSED)
       // EXIT does not need to check if pointer is valid because it's argument is not a pointer. 
       printf("EXIT STATUS %d", status);
       
-      process_exit();
+      exit(status);
       break;
     case SYS_EXEC:
       printf("EXEC");
       // Get the name of the new process, the pointer is stored in esp + 1 (first argument of SYS_EXEC),
       // ((int*)f->esp +1) returns the address of the argument, then need to dereference to then cast to char*.
       cmd_name = (char*)(*((int*)f->esp + 1)); 
+      if (!verify_pointer(cmd_name))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+
       printf("%s", cmd_name);
 
       break;
@@ -135,4 +141,86 @@ verify_pointer(void *pointer)
     valid = false;
   
   return valid; 
+}
+
+static void 
+halt(void)
+{
+  return;
+}
+
+static void 
+exit(int status)
+{
+  process_exit();
+}
+
+static pid_t 
+exec(const char* cmd_line)
+{
+  pid_t pid = -1;
+  struct thread *cur = thread_current();
+
+  
+  return 0;
+}
+
+static int 
+wait(pid_t pid)
+{
+  return -1;
+}
+
+static bool 
+create(const char* file, unsigned initial_size)
+{
+  return false;
+}
+
+static bool 
+remove(const char* file)
+{
+  return false;
+}
+
+static int 
+open(const char* file)
+{
+  return 0;
+}
+
+static int 
+filesize(int fd)
+{
+  return 0;
+}
+
+static int 
+read(int fd, void* buffer, unsigned size)
+{
+  return 0; 
+}
+
+static int 
+write (int fd, void* buffer, unsigned size)
+{
+  return 0;
+}
+
+static void 
+seek(int fd, unsigned position)
+{
+  return; 
+}
+
+static 
+unsigned tell (int fd)
+{
+  return 0;
+}
+
+static void 
+close(int fd)
+{
+  return;
 }
