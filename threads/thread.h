@@ -107,6 +107,7 @@ struct thread
     /* Process variables */
     tid_t parent;
     bool child_load;
+    bool child_status;
     struct thread *child;
 
     struct condition msg_parent;

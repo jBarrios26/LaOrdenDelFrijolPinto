@@ -7,6 +7,7 @@
 
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 #include "threads/vaddr.h"
 
 
@@ -158,11 +159,21 @@ exit(int status)
 static pid_t 
 exec(const char* cmd_line)
 {
-  pid_t pid = -1;
+  tid_t child;
   struct thread *cur = thread_current();
-
   
-  return 0;
+  // Create the process, start to load the new process and returns the TID (PID).
+  child = process_execute(cmd_line);
+  // Use a monitor that  allows the child to message his parent.
+  lock_acquire(&cur->lock_child);
+  // If child hasn't load then wait. To avoid race conditions.
+  while(cur->child_load)
+    cond_wait(&cur->msg_parent, &cur->lock_child);
+  // Check the exec_status of child.
+  if (!cur->child_status)
+    child = -1;
+  lock_release(&cur->lock_child);
+  return child;
 }
 
 static int 
