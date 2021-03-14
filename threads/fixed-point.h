@@ -16,9 +16,13 @@
 //Basic operations between 2 fixed-point numbers
 #define ADD(x,y) (x)+(y)                        //x and y are fixed-point numbers
 #define SUBS(x,y) (x)-(y) 
-#define MULTI(x,y) (x)*(y) 
-#define DIV(x,y) (x)/(y)
+#define MULTI(x,y) ((int64_t)(x))*(y)/(F)       //fixed the corrimiento
+#define DIV(x,y) ((int64_t)(x))*(F)/(y)         //fixed the corrimiento
 
-#define 
+//Basic operations between a fixed-point number and a integer
+#define ADD_FP_INT(x,n) (x)+(n)*(F)             //It multiplies by F to convert it to a fixed-point as well
+#define SUB__FP_INT(x,n) (x)-(n)*(F)
+#define MULTI_FP_INT(x,n) (x)*(n)
+#define DIV_FP_INT(x,n) (x)/(n)
 
 #endif
