@@ -12,10 +12,13 @@
 #define CONVERT_TO_FIXED_POINT(n)  (n)*(F)      //n is integer
 #define CONVERT_TO_INTZERO(x) (x)/(F)           //x is fixed point and signed. This one rounds to 0
 
+
+//Basic operations between 2 fixed-point numbers
 #define ADD(x,y) (x)+(y)                        //x and y are fixed-point numbers
 #define SUBS(x,y) (x)-(y) 
 #define MULTI(x,y) (x)*(y) 
 #define DIV(x,y) (x)/(y)
 
+#define 
 
 #endif
