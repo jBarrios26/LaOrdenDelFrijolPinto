@@ -51,9 +51,10 @@ syscall_init (void)
 
 */
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f) 
 {
   // Revisar que el puntero sea el correcto.
+  
   int status;
   char* cmd_name;
 
@@ -62,6 +63,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     printf("Error en el puntero del stack");
     exit(-1);
   }
+
   switch (*(int*)f->esp)
   {
     case SYS_HALT:
@@ -136,7 +138,7 @@ verify_pointer(void *pointer)
   struct thread *cur = thread_current(); 
   bool valid = true;
 
-  if (is_user_vaddr(pointer) || pointer > (void*)0x08048000)
+  if (pointer == NULL && !is_user_vaddr(pointer))
     valid = false;
   
   if (pagedir_get_page(cur->pagedir, pointer) == NULL)

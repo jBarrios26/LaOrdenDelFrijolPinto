@@ -107,7 +107,6 @@ start_process (void *file_name_)
   {
     parent->child_status = true;
     parent->child_load = true;
-    cur->parent = parent->tid;
     cond_signal(&parent->msg_parent, &parent->process_lock);
   }
   lock_release(&parent->process_lock);

@@ -179,7 +179,7 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-
+  struct thread *cur = thread_current();
   ASSERT (function != NULL);
 
   /* Allocate thread. */
@@ -190,8 +190,8 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+  t->parent = cur->tid;
   tid = t->tid = allocate_tid ();
-
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -641,10 +641,8 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->locks);
   list_init(&t->donations);
 
-#ifdef USERPROG 
   lock_init(&t->process_lock);
   cond_init(&t->msg_parent);
-#endif
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   
