@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <syscall-nr.h>
 
+#include "threads/malloc.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/synch.h"
@@ -172,6 +173,14 @@ exec(const char* cmd_line)
   // Check the exec_status of child.
   if (!cur->child_status)
     child = -1;
+  else
+  {
+    struct children_process *child_p = malloc(sizeof(struct children_process));
+    child_p->pid = child;
+    child_p->status = -1;
+    child_p->finish = false; 
+    hash_insert(&cur->children, &child_p->elem);
+  }
   
   cur->child_load = false;
   cur->child_status = false;
