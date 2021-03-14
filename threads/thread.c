@@ -629,7 +629,6 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
-  struct thread *cur = thread_current();
 
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
@@ -639,14 +638,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->original_priority = priority;
   t->waiting = NULL;
-
-  t->parent = cur->tid;
   list_init(&t->locks);
   list_init(&t->donations);
 
+#ifdef USERPROG 
   lock_init(&t->process_lock);
   cond_init(&t->msg_parent);
-
+#endif
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   
