@@ -491,8 +491,7 @@ recalcute_priority(struct thread *current_thread, void *aux UNUSED )
 
   if (current_thread != idle_thread)
     {
-      
-      current_thread->priority = PRI_MAX - (current_thread->recent_cpu/4) - (current_thread-> nice * 2);
+      //current_thread->priority = PRI_MAX - CONVERT_TO_INT_NEAREST(DIV_FP_INT(current_thread->recent_cpu,4)) - (current_thread-> nice * 2);
       /*si la nueva prioridad es mas pequeña que la prioridad minima, asigna como prioridad 0
         si es más grande que la máxima, asigna 64 
       */
@@ -510,8 +509,8 @@ calculate_recent_cpu (struct thread *cur, void *aux UNUSED)
   ASSERT (is_thread (cur));
   if (cur != idle_thread)
     {
-      int division = (2 * load_avg) / (2 * load_avg +1);
-      cur->recent_cpu =  division * cur->recent_cpu + cur->nice;
+      int coefficient = DIV(MULTI_FP_INT(load_avg,2), MULTI_FP_INT(load_avg,2) +1);
+      cur->recent_cpu = ADD_FP_INT(MULTI(coefficient,cur->recent_cpu), cur->nice);
     }
 }
 
@@ -557,14 +556,14 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(load_avg,100));
+  return (MULTI_FP_INT(load_avg,100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(thread_current()->recent_cpu,100));
+  return (MULTI_FP_INT(thread_current()->recent_cpu,100));
 }
 
 /* Sort the ready thread list by priority */

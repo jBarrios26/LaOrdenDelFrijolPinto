@@ -21,8 +21,8 @@
 #define DIV(x,y) ((int64_t)(x))*(F)/(y)         //fixed the corrimiento
 
 //Basic operations between a fixed-point number and a integer
-#define ADD_FP_INT(x,n) (x)+(n)*(F)             //It multiplies by F to convert it to a fixed-point as well
-#define SUB__FP_INT(x,n) (x)-(n)*(F)
+#define ADD_FP_INT(x,n) (x)+ ((n)*(F))             //It multiplies by F to convert it to a fixed-point as well
+#define SUB__FP_INT(x,n) (x)-((n)*(F))
 #define MULTI_FP_INT(x,n) (x)*(n)
 #define DIV_FP_INT(x,n) (x)/(n)
 
