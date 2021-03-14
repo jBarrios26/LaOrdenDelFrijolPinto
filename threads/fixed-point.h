@@ -11,7 +11,8 @@
 
 #define CONVERT_TO_FIXED_POINT(n)  (n)*(F)      //n is integer
 #define CONVERT_TO_INTZERO(x) (x)/(F)           //x is fixed point and signed. This one rounds to 0
-
+//(x + f / 2) / f if x >= 0, (x - f / 2) / f if x <= 0. 
+#define CONVERT_TO_INT_NEAREST(x) (if((x)>=0){ ((x)+(F)/2) / F} else if ((x) <= 0){ ((x)-(F)/2) / F})              
 
 //Basic operations between 2 fixed-point numbers
 #define ADD(x,y) (x)+(y)                        //x and y are fixed-point numbers
