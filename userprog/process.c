@@ -5,12 +5,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "hash.h"
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -20,6 +23,24 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static unsigned children_hash (const  struct hash_elem *elem, void *aux UNUSED); 
+static bool childres_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+
+
+
+static unsigned 
+children_hash (const  struct hash_elem *elem, void *aux UNUSED)
+{
+  const struct children_process *child  = hash_entry(elem, struct children_process, elem);
+  return hash_int(child->pid);
+} 
+
+static bool childres_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED){
+  const struct children_process *a_ = hash_entry (a, struct children_process, elem);
+  const struct children_process *b_ = hash_entry (b, struct children_process, elem);
+  return a_->pid < b_->pid;
+}
+
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -71,6 +92,8 @@ start_process (void *file_name_)
      Need to use the synchronization variables defined on the parent thread.
   */
 
+  hash_init(&cur->children, children_hash, childres_hash_less, NULL);
+
   struct thread* parent = get_thread(cur->parent);
   
   /* Acquire lock from parent to modify state variables and signal him.*/
@@ -84,7 +107,7 @@ start_process (void *file_name_)
   {
     parent->child_status = true;
     parent->child_load = true;
-    parent->child = cur;
+    
     cond_signal(&parent->msg_parent, &parent->process_lock);
   }
   lock_release(&parent->process_lock);

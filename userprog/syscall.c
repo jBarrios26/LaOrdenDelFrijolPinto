@@ -172,6 +172,9 @@ exec(const char* cmd_line)
   // Check the exec_status of child.
   if (!cur->child_status)
     child = -1;
+  
+  cur->child_load = false;
+  cur->child_status = false;
   lock_release(&cur->process_lock);
   return child;
 }
@@ -179,7 +182,7 @@ exec(const char* cmd_line)
 static int 
 wait(pid_t pid)
 {
-  return -1;
+  return process_wait(pid);
 }
 
 static bool 
