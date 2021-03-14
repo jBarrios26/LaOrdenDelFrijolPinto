@@ -12,6 +12,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -344,13 +345,10 @@ insert_in_waiting_list(int64_t ticks)
   old_level = intr_disable ();
 
   /* Remover el thread actual de "ready_list" e insertarlo en "lista_espera"
-  Cambiar su estatus a THREAD_BLOCKED, y definir su tiempo de expiracion */
+     Cambia el status a THREAD_BLOCKED */
   
   struct thread *thread_actual = thread_current ();
   thread_actual->time_sleeping = timer_ticks() + ticks;
-  
-  /*Donde TIEMPO_DORMIDO es el atributo de la estructura thread que usted
-    definió como paso inicial*/
   
   list_push_back(&wait_sleeping_list, &thread_actual->elem);
   thread_block();
@@ -545,12 +543,6 @@ thread_set_nice (int nice UNUSED)
 
   curr = thread_current ();
   curr->nice = nice;
-
-  thread_current ()->nice = nice;
-  thread_set_priority(thread_current()->priority);
-  /*if(!is_highest_priority()){
-    thread_yield();
-  }*/
 }
 
 /* Returns the current thread's nice value. */
