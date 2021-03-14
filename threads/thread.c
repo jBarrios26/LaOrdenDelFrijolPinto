@@ -529,7 +529,8 @@ calculate_load_avg(void){
   if (cur != idle_thread) ready_threads = list_ready_threads + 1;
   else ready_threads = list_ready_threads;
 
-  load_avg = (59/60)*load_avg + (1/60)*ready_threads;
+  //load_avg = (59/60)*load_avg + (1/60)*ready_threads
+  load_avg = MULTI(DIV_FP_INT(CONVERT_TO_FIXED_POINT(59),60),load_avg) + MULTI_FP_INT(DIV_FP_INT(CONVERT_TO_FIXED_POINT(1),60),ready_threads);
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -556,16 +557,14 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  int current_system__load_avg =0;
-  return (100*load_avg);
+  return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(load_avg,100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return (100 * thread_current ()->recent_cpu);
+  return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(thread_current()->recent_cpu,100));
 }
 
 /* Sort the ready thread list by priority */
