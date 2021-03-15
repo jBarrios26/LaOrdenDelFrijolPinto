@@ -107,8 +107,10 @@ struct thread
 
     /* Process variables */
     tid_t parent;
+    tid_t child_waiting;
     bool child_load;
     bool child_status;
+    bool children_init;
     struct hash children;
  
     struct condition msg_parent;
@@ -122,6 +124,8 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

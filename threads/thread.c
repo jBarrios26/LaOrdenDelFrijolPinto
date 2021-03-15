@@ -300,7 +300,7 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
-
+  printf("Sale %s %d", thread_current()->name, thread_current()->tid);
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
@@ -482,6 +482,7 @@ struct thread
   while (iter != list_end(&all_list))
   {
     struct thread *t = list_entry(iter, struct thread, allelem); 
+    printf("%s %d ==? %d\n",t->name, t->tid, tid );
     if (t->tid == tid)
       return t;
     iter = list_next(iter);
@@ -638,6 +639,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->original_priority = priority;
   t->waiting = NULL;
+  t->child_waiting = 0;
+  t->children_init=false;
   list_init(&t->locks);
   list_init(&t->donations);
 
