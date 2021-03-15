@@ -23,7 +23,7 @@ static bool create(const char* file, unsigned initial_size);
 static bool remove(const char* file);
 static int open(const char* file);
 static int filesize(int fd);
-static int  read(int fd, void* buffer, unsigned size);
+static int read(int fd, char* buffer, unsigned size);
 static int write (int fd, void* buffer, unsigned size);
 static void seek(int fd, unsigned position);
 static unsigned tell (int fd);
@@ -51,19 +51,21 @@ syscall_init (void)
 
 */
 static void
-syscall_handler (struct intr_frame *f) 
+syscall_handler (struct intr_frame *f UNUSED) 
 {
   // Revisar que el puntero sea el correcto.
-  
   int status;
   char* cmd_name;
+  
+  int fp;
+  char* buffer;
+  unsigned size;
 
   if (!verify_pointer(f->esp))
   {
     printf("Error en el puntero del stack");
     exit(-1);
   }
-
   switch (*(int*)f->esp)
   {
     case SYS_HALT:
@@ -108,6 +110,22 @@ syscall_handler (struct intr_frame *f)
       break;
     case SYS_READ: 
       printf("READ");
+
+      fp = (*((int*)f->esp + 1)); 
+      buffer = (char*)(*((int*)f->esp + 2));
+      size = (*((int*)f->esp + 3));
+
+      if (!verify_pointer(buffer))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+
+      // AO = Bytes actualy read.
+      f->eax = read(fp, buffer, size);
+
+      printf("bytes: %d", f->eax);
+
       break;
     case SYS_WRITE:
       printf("WRITE");
@@ -138,7 +156,7 @@ verify_pointer(void *pointer)
   struct thread *cur = thread_current(); 
   bool valid = true;
 
-  if (pointer == NULL && !is_user_vaddr(pointer))
+  if (is_user_vaddr(pointer) || pointer > (void*)0x08048000)
     valid = false;
   
   if (pagedir_get_page(cur->pagedir, pointer) == NULL)
@@ -221,9 +239,27 @@ filesize(int fd)
 }
 
 static int 
-read(int fd, void* buffer, unsigned size)
+read(int fd, char* buffer, unsigned size)
 {
-  return 0; 
+  int read_size = -1;
+
+  // Read from keyboard
+  if (fd){
+    // TODO Agree with Chato about the file_reading stuff
+    // if (readOK){
+    //   read_size = file_read(file_name, buffer, size);
+    // }
+  }
+  // Read from file
+  else {
+    int i = 0;
+    while(i < size){
+      buffer[i++] = input_getc();
+    }
+    read_size = size;
+  }
+
+  return read_size;
 }
 
 static int 
