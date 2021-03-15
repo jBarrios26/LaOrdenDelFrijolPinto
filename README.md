@@ -19,8 +19,3 @@ Integrantes:
 
 ![Los Caballeros Dorados](.gitbook/assets/image%20%282%29.png)
 
-* Jorge Barrios
-* Juan Pablo Rodriguez
-* Gizeh García
-* Carlos Gálvez
-
