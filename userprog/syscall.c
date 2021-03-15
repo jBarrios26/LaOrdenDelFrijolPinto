@@ -107,8 +107,17 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_OPEN:
       printf("OPEN");
       break;
+
     case SYS_FILESIZE:
       printf("FILESIZE");
+
+      fp = (*((int*)f->esp + 1)); 
+      
+      // A0 = Bytes actualy read.
+      f->eax = filesize(fp);
+
+      printf("bytes: %d", f->eax);  
+
       break;
     case SYS_READ: 
       printf("READ");
@@ -123,7 +132,7 @@ syscall_handler (struct intr_frame *f UNUSED)
         exit(-1);
       }
 
-      // AO = Bytes actualy read.
+      // A0 = Bytes actualy read.
       f->eax = read(fp, buffer, size);
 
       printf("bytes: %d", f->eax);
@@ -165,6 +174,13 @@ verify_pointer(void *pointer)
     valid = false;
   
   return valid; 
+}
+
+static struct file*
+get_file(int fd)
+{
+  struct file *fd_file = NULL;
+  return fd_file;
 }
 
 static void 
