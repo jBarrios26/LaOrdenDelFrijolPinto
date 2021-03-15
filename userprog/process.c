@@ -20,11 +20,11 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-static unsigned children_hash (const  struct hash_elem *elem, void *aux UNUSED); 
-static bool childres_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+
 
 
 
@@ -66,6 +66,16 @@ process_execute (const char *file_name)
   tid = thread_create (name, PRI_DEFAULT, start_process,args);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  if (!thread_current()->children_init)
+  {
+    hash_init(&thread_current()->children, children_hash, childres_hash_less, NULL);
+    struct children_process *child_p = malloc(sizeof(struct children_process));
+    child_p->pid = tid;
+    child_p->status = -1;
+    child_p->finish = false; 
+    hash_insert(&thread_current()->children, &child_p->elem);
+    thread_current()->children_init = true;
+  }
   return tid;
 }
 
@@ -91,25 +101,25 @@ start_process (void *file_name_)
   /* Need to check if load was successful and signal the parent thread.
      Need to use the synchronization variables defined on the parent thread.
   */
-
   hash_init(&cur->children, children_hash, childres_hash_less, NULL);
-
+  cur->children_init = true;
   struct thread* parent = get_thread(cur->parent);
-  
+  if (parent){
   /* Acquire lock from parent to modify state variables and signal him.*/
-  lock_acquire(&parent->process_lock);
-  if (!success) 
-  {
-    parent->child_load = true;
-    cond_signal(&parent->msg_parent, &parent->process_lock);
-    thread_exit ();
-  }else
-  {
-    parent->child_status = true;
-    parent->child_load = true;
-    cond_signal(&parent->msg_parent, &parent->process_lock);
+    lock_acquire(&parent->process_lock);
+    if (!success) 
+    {
+      parent->child_load = true;
+      cond_signal(&parent->msg_parent, &parent->process_lock);
+      thread_exit ();
+    }else
+    {
+      parent->child_status = true;
+      parent->child_load = true;
+      cond_signal(&parent->msg_parent, &parent->process_lock);
+    }
+    lock_release(&parent->process_lock);
   }
-  lock_release(&parent->process_lock);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -139,8 +149,8 @@ process_wait (tid_t child_tid)
   // get the child process from parent children hash table.
   struct children_process child;
   child.pid = child_tid;
-  struct hash_elem *child_elem = hash_find(&cur->children, &child.elem); 
-
+  
+ struct hash_elem *child_elem = NULL;
   /*
     If child_elem is NULL then this child_tid doesn't map to a child process of current thread, return -1.
     If child_elem is not NULL then check if child has already finish, return child process exit status. 

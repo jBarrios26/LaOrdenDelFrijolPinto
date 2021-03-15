@@ -63,7 +63,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   if (!verify_pointer(f->esp))
   {
-    printf("Error en el puntero del stack");
     exit(-1);
   }
   switch (*(int*)f->esp)
@@ -88,10 +87,11 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
         printf("puntero erroneo");
         exit(-1);
+        return;
       }
 
       printf("%s", cmd_name);
-      // f->eax = exec(cmd_name);
+      f->eax = exec(cmd_name);
       break;
     case SYS_WAIT:
       printf("WAIT");
@@ -156,7 +156,7 @@ verify_pointer(void *pointer)
   struct thread *cur = thread_current(); 
   bool valid = true;
 
-  if (is_user_vaddr(pointer) || pointer > (void*)0x08048000)
+  if (!is_user_vaddr(pointer) || pointer == NULL)
     valid = false;
   
   if (pagedir_get_page(cur->pagedir, pointer) == NULL)
@@ -189,7 +189,6 @@ exec(const char* cmd_line)
 {
   tid_t child;
   struct thread *cur = thread_current();
-  
   // Create the process, start to load the new process and returns the TID (PID).
   child = process_execute(cmd_line);
   // Use a monitor that  allows the child to message his parent.
