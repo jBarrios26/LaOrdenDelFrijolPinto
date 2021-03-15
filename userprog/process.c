@@ -131,13 +131,43 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  while (true)
+  struct thread *cur;
+  cur = thread_current();
+
+  // get the child process from parent children hash table.
+  struct children_process child;
+  child.pid = child_tid;
+  struct hash_elem *child_elem = hash_find(&cur->children, &child.elem); 
+
+  /*
+    If child_elem is NULL then this child_tid doesn't map to a child process of current thread, return -1.
+    If child_elem is not NULL then check if child has already finish, return child process exit status. 
+  */
+  if (child_elem == NULL)
   {
-    thread_yield();
+    return -1; 
   }
-  
+
+  /*
+    If finish is true then child process maybe have exited on their own or current may have already waited for him once.
+  */
+  struct children_process *child_control;
+  child_control = hash_entry(child_elem, struct children_process, elem);
+  if (child_control->finish){
+    return child_control->status;
+  }
+
+  lock_acquire(&cur->process_lock);
+    cur->waiting = child_tid;
+    while (!child_control->finish)
+    {
+      cond_wait(&cur->msg_parent, &cur->process_lock);
+    }
+    cur->waiting = 0; 
+  lock_release(&cur->process_lock);
+  return child_control->status;
 }
 
 /* Free the current process's resources. */

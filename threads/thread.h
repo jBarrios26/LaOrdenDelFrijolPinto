@@ -107,6 +107,7 @@ struct thread
 
     /* Process variables */
     tid_t parent;
+    tid_t child_waiting;
     bool child_load;
     bool child_status;
     struct hash children;
