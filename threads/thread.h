@@ -3,6 +3,7 @@
 
 #include <debug.h>
 #include <list.h>
+#include <hash.h>
 #include "threads/synch.h"
 #include <stdint.h>
 
@@ -108,8 +109,8 @@ struct thread
     tid_t parent;
     bool child_load;
     bool child_status;
-    struct thread *child;
-
+    struct hash children;
+ 
     struct condition msg_parent;
     struct lock process_lock;
 
