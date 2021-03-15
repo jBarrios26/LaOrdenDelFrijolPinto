@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <syscall-nr.h>
 
+#include "threads/malloc.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/synch.h"
@@ -22,11 +23,13 @@ static bool create(const char* file, unsigned initial_size);
 static bool remove(const char* file);
 static int open(const char* file);
 static int filesize(int fd);
-static int  read(int fd, void* buffer, unsigned size);
+static int read(int fd, char* buffer, unsigned size);
 static int write (int fd, void* buffer, unsigned size);
 static void seek(int fd, unsigned position);
 static unsigned tell (int fd);
 static void close(int fd);
+
+static struct file* get_file(int fd);
 
 void
 syscall_init (void) 
@@ -55,6 +58,10 @@ syscall_handler (struct intr_frame *f UNUSED)
   // Revisar que el puntero sea el correcto.
   int status;
   char* cmd_name;
+  
+  int fp;
+  char* buffer;
+  unsigned size;
 
   if (!verify_pointer(f->esp))
   {
@@ -105,6 +112,22 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_READ: 
       printf("READ");
+
+      fp = (*((int*)f->esp + 1)); 
+      buffer = (char*)(*((int*)f->esp + 2));
+      size = (*((int*)f->esp + 3));
+
+      if (!verify_pointer(buffer))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+
+      // AO = Bytes actualy read.
+      f->eax = read(fp, buffer, size);
+
+      printf("bytes: %d", f->eax);
+
       break;
     case SYS_WRITE:
       printf("WRITE");
@@ -172,6 +195,17 @@ exec(const char* cmd_line)
   // Check the exec_status of child.
   if (!cur->child_status)
     child = -1;
+  else
+  {
+    struct children_process *child_p = malloc(sizeof(struct children_process));
+    child_p->pid = child;
+    child_p->status = -1;
+    child_p->finish = false; 
+    hash_insert(&cur->children, &child_p->elem);
+  }
+  
+  cur->child_load = false;
+  cur->child_status = false;
   lock_release(&cur->process_lock);
   return child;
 }
@@ -179,7 +213,7 @@ exec(const char* cmd_line)
 static int 
 wait(pid_t pid)
 {
-  return -1;
+  return process_wait(pid);
 }
 
 static bool 
@@ -203,13 +237,35 @@ open(const char* file)
 static int 
 filesize(int fd)
 {
-  return 0;
+  int size = 0;
+
+  struct file *temp_file = get_file(fd);
+
+  size = file_length(temp_file);
+  
+  return size;
 }
 
 static int 
-read(int fd, void* buffer, unsigned size)
+read(int fd, char* buffer, unsigned size)
 {
-  return 0; 
+  int read_size = -1;
+
+  // Read from keyboard
+  if (fd){
+    struct file *temp_file = get_file(fd);
+    read_size = file_read(temp_file, buffer, size);
+  }
+  // Read from file
+  else {
+    int i = 0;
+    while(i < size){
+      buffer[i++] = input_getc();
+    }
+    read_size = size;
+  }
+
+  return read_size;
 }
 
 static int 
@@ -221,12 +277,18 @@ write (int fd, void* buffer, unsigned size)
 static void 
 seek(int fd, unsigned position)
 {
-  return; 
+  // Change the next byte to be read or written in the file fd to position, 0 is the beginig.
+  // If position > filesize then it returns 0 bytes.
+  // If position > filesize then it writes 0 until filesize = position (PART 4)
+  // For this part if position > filesize and it tries to write then it returns an error.
+  return;
+
 }
 
-static 
-unsigned tell (int fd)
+static unsigned 
+tell (int fd)
 {
+  // Returns the next byte to be read, in bytes.
   return 0;
 }
 
