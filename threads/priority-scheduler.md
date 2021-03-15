@@ -28,25 +28,32 @@ Al analizar el ciclo de vida se puede notar que solo hay tres instancias en que 
 
 * **thread\_yield**
 * **thread\_unblock**
-* **get\_next\_thread**
+
+Los threads luego son desencolados en la función **`next_thread_thread()`** donde se hace un **`pop_back(list)`** a la lista, ya que los threads están ordenados de menor a mayor prioridad.
 
 ### ¿Cómo ordenar las listas de pintOS?
 
 {% tabs %}
 {% tab title="Insert ordered" %}
 ```c
-list_insert_ordered(&ready_list, priority_value_less, NULL)
+list_insert_ordered(&ready_list, &thread->elem, priority_value_less, NULL)
 ```
 
 {% hint style="info" %}
 Ordena la lista de acuerdo a la función priority value less. 
+{% endhint %}
+
+{% hint style="warning" %}
+La lista está ordenada de menor a mayor prioridad, si las prioridades son iguales conserva el orden de llegada.
 {% endhint %}
 {% endtab %}
 
 {% tab title="Priority Value Less" %}
 ```c
 int 
-priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux)
+priority_value_less(const struct list_elem *a_,
+                    const struct list_elem *b_,
+                   void *aux)
 {
   const struct thread *a = list_entry (a_, struct thread, elem);
   const struct thread *b = list_entry (b_, struct thread, elem);
@@ -63,5 +70,11 @@ Esta función compara dos elementos de la lista. Tomar en cuenta si se utiliza m
 
 ### Thread Yield
 
+En la función **thread\_yield\(\)** se llama cuando el thread quiere ceder su tiempo en el procesador. Cuando cede su tiempo en el procesador va a regresar inmediatamente a la lista **ready\_list.** 
 
+### **Thread Unblock**
+
+Cuando un thread regresa del estado **BLOCK** a estado **READY** llama a esta función que lo ingresa de nuevo a la cola **ready\_list.** Es importante notar que todos los threads cuando se están creando empiezan en el estado **BLOCK** y luego se desbloquean con **thread\_unblock\(thread\).** 
+
+### 
 
