@@ -174,6 +174,13 @@ halt(void)
 static void 
 exit(int status)
 {
+  struct thread *cur = thread_current();
+  // Process termination message. 
+  printf("<%s>: exit(%d)", cur->name, status);
+
+  //TODO: Comunicate children processes that parent is exiting.
+  //TODO: Free resources of the thread.
+  //TODO: Communicate parent the status.
   process_exit();
 }
 
