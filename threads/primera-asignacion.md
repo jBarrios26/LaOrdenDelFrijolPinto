@@ -8,7 +8,7 @@ description: La primera asignación del proyecto de Threads.
 
 Esta asignación consiste en que los threads puedan dormir una cantidad de ticks sin utilizar  **busy waiting.**   Para lograr esto hay que utilizar la cola de threads con estado **BLOCK** y colocar en esa cola el thread, y cuando pase tiempo que el indico para estar dormido cambiar su estado de **BLOCK** a **READY**. 
 
-### ALGORITMOS:
+## ALGORITMOS:
 
 {% tabs %}
 {% tab title="SLEEP\_THREAD" %}
