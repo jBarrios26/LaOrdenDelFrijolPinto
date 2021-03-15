@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "syscall.h": "c"
+        "*.rmd": "markdown",
+        "syscall.h": "c",
+        "*.inc": "c"
     }
 }
