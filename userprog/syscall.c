@@ -68,8 +68,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   switch (*(int*)f->esp)
   {
     case SYS_HALT:
-      printf("HALT");
+      shutdown_power_off();
       break;
+      
     case SYS_EXIT:
       status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
       // TODO: Check for valid pointers.
