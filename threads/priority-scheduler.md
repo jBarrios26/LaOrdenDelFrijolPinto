@@ -99,7 +99,7 @@ struct lock
 
 En PintOS, los locks se implementan con un semáforo binario y se utiliza la lista de espera del semáforo para guardar los threads que estén esperando el **lock**. Por está razón los cambios para tomar en cuenta la prioridad se implementaron en los semáforos.
 
-Como el calendarizador toma en cuenta la prioridad puede pasar que un thread con baja prioridad obtenga el **lock** y nunca vuelva a ser programado por su baja prioridad, esto es una causa de **deadlock**, pero se puede solucionar al implementar las donaciones de prioridad.
+Como el calendarizador toma en cuenta la prioridad puede pasar que un thread con baja prioridad obtenga el **lock** y nunca vuelva a ser programado por su baja prioridad, esto es una causa de **deadlock**, pero se puede solucionar al implementar las [donaciones de prioridad.](priority-scheduler.md#donacion-de-prioridades)
 
 ### Semáforo
 
@@ -204,5 +204,166 @@ Se utiliza la función [priority value less ](priority-scheduler.md#como-ordenar
 {% endtab %}
 {% endtabs %}
 
+## Donación de Prioridades
 
+Cuando se toma en cuenta las prioridades para programar cada thread puede causar que un thread con baja prioridad tome un lock, luego entre un thread de prioridad más alta que intente tomar el lock pero como el thread de baja prioridad lo tiene va a entrar a la lista de espera del lock.  Si hay varios threads esperando que el thread de baja prioridad libere el lock puede causar deadlocks y que todos tomen más tiempo en ejecutarse. 
+
+Para solucionar esto se realizó la donación de prioridades.
+
+### Cambios a la struct lock, struct thread y una nueva struct.
+
+{% tabs %}
+{% tab title="struct lock" %}
+```c
+struct lock 
+  {
+    int id;
+    struct thread *holder;      /* Thread holding lock (for debugging). */
+    struct semaphore semaphore; /* Binary semaphore controlling access. */
+    struct donation *donated;
+    struct list_elem elem;
+  };
+```
+
+Se le agrego un id para poder compararlo con otros locks, una struct donation donde está la información de la donación que tiene actualmente el thread y un list\_elem para ingresar el lock a una lista.
+{% endtab %}
+
+{% tab title="struct donation" %}
+```c
+struct donation 
+  {
+    int priority;
+    struct lock *lock;
+    struct list_elem elem;
+  };
+```
+
+Es una estructura que guarda la información de las donaciones de cada thread. Incluye la prioridad donada, el lock que pertenece la donación y un list\_elem para guardarlo en una lista.
+{% endtab %}
+
+{% tab title="struct thread" %}
+```c
+struct thread
+{
+    ... Otros miembros
+    struct lock *waiting; 
+    struct thread *lock_holder;
+    struct list locks; 
+    struct list donations; 
+    int original_priority;
+}
+```
+
+Lock waiting es el lock que un thread está esperando, list donations es una lista de las donaciones que el thread ha recibido, original_priority es la prioridad original que el thread tiene \(la donación afecta a priority\) y lock\_holder es el thread que tiene el lock._ 
+{% endtab %}
+{% endtabs %}
+
+### Lock Acquire
+
+En la función lock\_acquire se realizó la implementación de las donaciones de prioridad. Se debe de tomar en cuenta 4 casos:
+
+* Donación simple: Un thread _A_ le dona su prioridad al thread _B_
+* Donación múltiple: Un thread _A_ le dona su prioridad al thread _B,_ y también el thread _C_ le dona su prioridad al thread _B._
+* Donación anidadas : Un thread _A_ tiene el lock 1, el thread _B_ tiene el lock 2 y está esperando por el lock 1 del thread _A_ y luego el thread _C_ pide el lock 2 del thread _B_.  Entonces el thread C le dona su prioridad
+* Donaciones en cadena: Es una forma de donaciones anidadas con una recursión de 8 niveles. 
+
+#### Caso \#1: Donación Simple
+
+```c
+lock_acquire(lock):
+    IF (current.priority > lock_holder.priority) THEN
+        crear struct donation
+        lock->holder = current
+        insertar donation a la cola de donaciones del thread
+        lock_holder.priority = current.priority
+    current.waiting = lock
+    sema_down()
+    lock->holder = current
+    current.waiting  = NULL
+```
+
+Para implementar las donaciones simples se hace el pseudocódigo anterior. En el se hace la donación si y solo si, la prioridad del thread actual o donante es mayor que el thread que tiene al lock. 
+
+#### Caso \#2: Donación Múltiple
+
+```c
+lock_acquire(lock):
+    IF (current.priority > lock_holder.priority) THEN
+        IF (lock_holder has donation) THEN
+            get lock_holder donation
+            IF (donation.priority < current.donation) THEN
+                swap priorities
+                ordenar la lista de donaciones del lock holder
+            ELSE
+                crear struct donation
+                lock->holder = current
+                insertar donation a la cola de donaciones del thread
+                lock_holder.priority = current.priority
+    current.waiting = lock
+    sema_down()
+    lock->holder = current
+    current.waiting  = NULL
+```
+
+Para la donación múltiple si se cumple la condición que el `current` tiene una prioridad menor que el `lock_holder` entonces se debe de revisar si el `lock_holder` ya le donaron una vez, de ser así se debe de revisar si la donación previa tiene una prioridad mayor que el de `current` y si eso se cumple hay que cambiar la prioridad de la donación. 
+
+En el caso que no tenga donaciones se realiza la donación simple.
+
+#### Caso \#3 y \#4: Donación anidada y en cadena
+
+```c
+lock_acquiere(lock):
+    holder = lock.holder
+    cont = 0
+    WHILE (holder != NULL && cont < 8):
+        IF (current.priority > lock_holder.priority) THEN
+            IF (lock_holder has donation) THEN
+                get lock_holder donation
+                IF (donation.priority < current.donation) THEN
+                    swap priorities
+                    ordenar la lista de donaciones del lock holder
+                ELSE
+                    crear struct donation
+                    lock->holder = current
+                    insertar donation a la cola de donaciones del thread
+                    lock_holder.priority = current.priority
+        holder = lock_holder.waiting
+        cont++
+    current.waiting = lock
+    sema_down()
+    lock->holder = current
+    current.waiting  = NULL    
+```
+
+Para las donaciones anidadas se implemento con un ciclo. Al final de realizar una donación se cambia el `lock_holder` por el lock que está esperando el `lock_holder.`  Las donaciones anidadas se van a realizar 8 veces. 
+
+### Lock Release
+
+Cuando un thread libera el lock, si otro thread le donó su prioridad se debe de liberar la prioridad donada y cambiar a la prioridad original del thread. 
+
+```c
+lock_release(lock):
+    IF lock has donation THEN
+        Remover la donacion de la lista de donaciones
+        IF No hay más donaciones THEN
+            Regresar a la prioridad original con original_priority
+        ELSE
+            Obtener la donación con la prioridad más alta
+            cambiar la prioridad previa por la nueva.
+    sema_up()
+```
+
+## ¿Cómo afectan la donación de prioridades al Priority Scheduler?
+
+### SET PRIORITY
+
+Los threads pueden cambiar su prioridad en cualquier momento de su ejecución, entonces si tienen una donación al momento de cambiar su prioridad no deben de perder la prioridad donada.  La prioridad debe de cambiar hasta que regresen la donación. 
+
+{% hint style="info" %}
+La struct thread tiene el miembro `original_priority` para solucionar este problema. 
+{% endhint %}
+
+### SEMA UP
+
+Hay que ordenar la lista de espera antes de despertar a un thread porque la donación puede cambiar la prioridad de un thread que este en la lista de espera
 
