@@ -6,8 +6,6 @@ description: >-
 
 # La Orden Del Frijol Pinto
 
-## Los integrantes del grupo:
-
 ## Proyecto de CC VII. Sistema Operativo PintOs
 
 * Jorge Barrios ¯\\_\(ツ\)\_/¯ 
