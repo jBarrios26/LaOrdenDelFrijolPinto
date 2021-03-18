@@ -18,6 +18,7 @@
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
+#include "threads/malloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/synch.h"
@@ -51,6 +52,7 @@ process_execute (const char *file_name)
 {
   char *fn_copy, *name, *save_ptr, *args;
   tid_t tid;
+  struct thread *cur = thread_current();
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -69,11 +71,25 @@ process_execute (const char *file_name)
   if (!thread_current()->children_init)
   {
     hash_init(&thread_current()->children, children_hash, childres_hash_less, NULL);
-    struct children_process *child_p = malloc(sizeof(struct children_process));
-    child_p->pid = tid;
-    child_p->status = -1;
-    child_p->finish = false; 
-    hash_insert(&thread_current()->children, &child_p->elem);
+    lock_acquire(&cur->process_lock);
+  
+    while(!cur->child_load)
+      cond_wait(&cur->msg_parent, &cur->process_lock);
+    
+    if (!cur->child_status)
+      return TID_ERROR;
+    else
+    {
+      struct children_process *child_p = malloc(sizeof(struct children_process));
+      child_p->pid = tid;
+      child_p->status = -1;
+      child_p->finish = false; 
+      hash_insert(&cur->children, &child_p->elem);
+    }
+  
+    cur->child_load = false;
+    cur->child_status = false;
+    lock_release(&cur->process_lock);
     thread_current()->children_init = true;
   }
   return tid;
@@ -104,6 +120,9 @@ start_process (void *file_name_)
   hash_init(&cur->children, children_hash, childres_hash_less, NULL);
   cur->children_init = true;
   struct thread* parent = get_thread(cur->parent);
+  struct children_process child;
+  child.pid = cur->tid;
+  struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
   if (parent){
   /* Acquire lock from parent to modify state variables and signal him.*/
     lock_acquire(&parent->process_lock);
@@ -111,6 +130,7 @@ start_process (void *file_name_)
     {
       parent->child_load = true;
       cond_signal(&parent->msg_parent, &parent->process_lock);
+      lock_release(&parent->process_lock);
       thread_exit ();
     }else
     {
@@ -150,7 +170,7 @@ process_wait (tid_t child_tid)
   struct children_process child;
   child.pid = child_tid;
   
- struct hash_elem *child_elem = NULL;
+ struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
   /*
     If child_elem is NULL then this child_tid doesn't map to a child process of current thread, return -1.
     If child_elem is not NULL then check if child has already finish, return child process exit status. 
@@ -159,18 +179,18 @@ process_wait (tid_t child_tid)
   {
     return -1; 
   }
-
+  debug_backtrace();
   /*
     If finish is true then child process maybe have exited on their own or current may have already waited for him once.
   */
   struct children_process *child_control;
   child_control = hash_entry(child_elem, struct children_process, elem);
+  printf("%d\n\n",child_control->pid);
   if (child_control->finish){
     return child_control->status;
   }
-
   lock_acquire(&cur->process_lock);
-    cur->waiting = child_tid;
+    cur->child_waiting = child_tid;
     while (!child_control->finish)
     {
       cond_wait(&cur->msg_parent, &cur->process_lock);

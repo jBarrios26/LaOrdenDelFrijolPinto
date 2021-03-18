@@ -56,6 +56,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   // Revisar que el puntero sea el correcto.
   int status;
   char* cmd_name;
+  int tid;
   
   int fp;
   char* buffer;
@@ -94,7 +95,8 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = exec(cmd_name);
       break;
     case SYS_WAIT:
-      printf("WAIT");
+      tid = *((int*)f->esp + 1); 
+      process_wait(tid);
       break;
     case SYS_CREATE:
       printf("CREATE");
@@ -129,6 +131,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_WRITE:
       printf("WRITE");
+      f->eax = 1;
       break;
     case SYS_SEEK:
       printf("SEEK");
