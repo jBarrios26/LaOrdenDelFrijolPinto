@@ -491,7 +491,7 @@ recalcute_priority(struct thread *current_thread, void *aux UNUSED )
 
   if (current_thread != idle_thread)
     {
-      //current_thread->priority = PRI_MAX - CONVERT_TO_INT_NEAREST(DIV_FP_INT(current_thread->recent_cpu,4)) - (current_thread-> nice * 2);
+      current_thread->priority = PRI_MAX - CONVERT_TO_INT_NEAREST(DIV_FP_INT(current_thread->recent_cpu,4)) - (current_thread-> nice * 2);
       /*si la nueva prioridad es mas pequeña que la prioridad minima, asigna como prioridad 0
         si es más grande que la máxima, asigna 64 
       */
@@ -556,7 +556,7 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return (MULTI_FP_INT(load_avg,100));
+  return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(load_avg,100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
