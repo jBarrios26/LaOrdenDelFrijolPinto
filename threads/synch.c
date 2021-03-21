@@ -1,4 +1,4 @@
-/* This file is derived from source code for the Nachos
+  /* This file is derived from source code for the Nachos
    instructional operating system.  The Nachos copyright notice
    is reproduced in full below. */
 
@@ -34,6 +34,7 @@
 #include "malloc.h"
 static int ids = 0;
 bool donations_value_less(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED);
+bool sema_value_less(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED);
 int search_lock_donated_priority (struct list *donations, struct lock *lock);
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -119,17 +120,16 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   
-  struct thread *next_thread;
+struct thread *next_thread;
   if (!list_empty (&sema->waiters)) 
   {
     list_sort (&sema->waiters, priority_value_less, NULL);
-    // thread_list_print(&sema->waiters);
-    next_thread = list_entry (list_pop_back (&sema->waiters),
-                                struct thread, elem);
+
+    next_thread = list_entry (list_pop_back (&sema->waiters), struct thread, elem);
     thread_unblock (next_thread);
   }
   sema->value++;
-  if (thread_current ()->priority < next_thread->priority)
+  if (thread_current()->priority < next_thread->priority)
     thread_yield();
   
   intr_set_level (old_level);
@@ -240,6 +240,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  thread_current ()->lock_holder = lock->holder;
 
   enum intr_level old_level;
 
@@ -424,7 +425,10 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+ 	list_push_back (&cond->waiters, &waiter.elem);
+    //list_push_front (&cond->waiters, &waiter.elem);
+ // list_insert_ordered(&cond->waiters, &waiter.elem, priority_value_less, NULL);
+	
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -440,15 +444,26 @@ cond_wait (struct condition *cond, struct lock *lock)
 void
 cond_signal (struct condition *cond, struct lock *lock UNUSED) 
 {
-  ASSERT (cond != NULL);
-  ASSERT (lock != NULL);
-  ASSERT (!intr_context ());
-  ASSERT (lock_held_by_current_thread (lock));
+	ASSERT (cond != NULL);
+  	ASSERT (lock != NULL);
+  	ASSERT (!intr_context ());
+	ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters)) 
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
-                          struct semaphore_elem, elem)->semaphore);
+	void * aux = NULL;
+	// if (is_sorted(list_front(&cond->waiters), list_back(&cond->waiters), priority_value_less, aux))
+	// 	printf("is sorted");
+	
+	if (!list_empty (&cond->waiters)) {
+		// ordenar lista primero
+
+		list_sort (&cond->waiters, sema_value_less, aux);
+		
+		// list_reverse(&cond->waiters);
+
+		sema_up (&list_entry (list_pop_back (&cond->waiters), struct semaphore_elem, elem)->semaphore);
+	}
 }
+
 
 /* Wakes up all threads, if any, waiting on COND (protected by
    LOCK).  LOCK must be held before calling this function.
@@ -464,6 +479,65 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+
+}
+
+
+/*
+  Donor thread shares its priority to the thead that is holding the lock.
+  If another high priority thread has already donated to lock holder, the highest priority stays. 
+
+  Donor threads also donates its priority to locks that lock holder it's waiting
+void 
+donate_priority(struct thread *donor, struct lock *lock)
+{
+  struct thread *lock_holder = lock->holder;
+  
+  if (lock_holder == NULL)
+    return;
+
+  if (lock_holder->donated_priority == 0 && lock_holder->priority < donor->priority )
+  {
+    lock_holder->original_priority = lock_holder->priority;
+    lock_holder->priority = donor->priority;
+    lock_holder->donated_priority = donor->priority;
+  }
+}
+*/
+
+/* 
+  Returns to the original priority.
+void 
+return_priority(struct lock *lock)
+{
+  struct thread *lock_holder =lock->holder;
+
+  lock_holder->priority = lock_holder->original_priority;
+  lock_holder->original_priority = 64;
+  lock_holder->donated_priority = 64;
+
+}
+*/
+
+
+bool 
+donations_value_less(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED)
+{
+  const int a_member = (list_entry(a, struct thread, elem))->priority;
+  const int b_member = (list_entry(b, struct thread, elem))->priority;
+  return a_member < b_member;
+}
+
+bool 
+sema_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+  struct semaphore_elem *a = list_entry (a_, struct semaphore_elem, elem);
+  struct semaphore_elem *b = list_entry (b_, struct semaphore_elem, elem);
+
+  const struct thread *t1 = list_entry (list_front(&a->semaphore.waiters), struct thread, elem);
+  const struct thread *t2 = list_entry (list_front(&b->semaphore.waiters), struct thread, elem);
+
+  return t1->priority <= t2->priority;
 }
 
 
