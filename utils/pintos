@@ -263,13 +263,12 @@ sub set_disk {
 # and creates temporary disks.
 sub find_disks {
   # Find kernel, if we don't already have one.
-  
-    # Change this before pushing to GitHub
+ # Change this before pushing to GitHub
 
   if (!exists $parts{KERNEL}) {    # Change this before pushing to GitHub
 
     # Jorge
-    my $name = find_file ('/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/userprog/build/kernel.bin');
+    # my $name = find_file ('/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/threads/build/kernel.bin');
     # Gizeh
     # my $name = find_file ('/home/.../LaOrdenDelFrijolPinto/threads/build/kernel.bin');
     # Chato
