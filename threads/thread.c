@@ -445,7 +445,7 @@ thread_set_priority (int new_priority)
 {
   ASSERT (new_priority >= 0);
   ASSERT (new_priority < 64);
-  
+
   const struct thread *max_priority_thread = get_max_priority_thread();
   struct thread *cur = thread_current();
   if (cur->original_priority != cur->priority)

@@ -120,8 +120,7 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   
-  struct thread *next_thread = NULL;
-  struct thread *cur = thread_current();
+struct thread *next_thread;
   if (!list_empty (&sema->waiters)) 
   {
     list_sort (&sema->waiters, priority_value_less, NULL);
@@ -130,10 +129,8 @@ sema_up (struct semaphore *sema)
     thread_unblock (next_thread);
   }
   sema->value++;
-  
-  if (next_thread != NULL && !intr_context() && cur->priority < next_thread->priority){
+  if (thread_current()->priority < next_thread->priority)
     thread_yield();
-  }
   
   intr_set_level (old_level);
 }
@@ -242,7 +239,6 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
 
   thread_current ()->lock_holder = lock->holder;
 
@@ -542,4 +538,50 @@ sema_value_less(const struct list_elem *a_, const struct list_elem *b_, void *au
   const struct thread *t2 = list_entry (list_front(&b->semaphore.waiters), struct thread, elem);
 
   return t1->priority <= t2->priority;
+}
+
+
+/*
+  Donor thread shares its priority to the thead that is holding the lock.
+  If another high priority thread has already donated to lock holder, the highest priority stays. 
+
+  Donor threads also donates its priority to locks that lock holder it's waiting
+void 
+donate_priority(struct thread *donor, struct lock *lock)
+{
+  struct thread *lock_holder = lock->holder;
+  
+  if (lock_holder == NULL)
+    return;
+
+  if (lock_holder->donated_priority == 0 && lock_holder->priority < donor->priority )
+  {
+    lock_holder->original_priority = lock_holder->priority;
+    lock_holder->priority = donor->priority;
+    lock_holder->donated_priority = donor->priority;
+  }
+}
+*/
+
+/* 
+  Returns to the original priority.
+void 
+return_priority(struct lock *lock)
+{
+  struct thread *lock_holder =lock->holder;
+
+  lock_holder->priority = lock_holder->original_priority;
+  lock_holder->original_priority = 64;
+  lock_holder->donated_priority = 64;
+
+}
+*/
+
+
+bool 
+donations_value_less(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED)
+{
+  const int a_member = (list_entry(a, struct thread, elem))->priority;
+  const int b_member = (list_entry(b, struct thread, elem))->priority;
+  return a_member < b_member;
 }

@@ -263,8 +263,7 @@ sub set_disk {
 # and creates temporary disks.
 sub find_disks {
   # Find kernel, if we don't already have one.
-  
-    # Change this before pushing to GitHub
+ # Change this before pushing to GitHub
 
   if (!exists $parts{KERNEL}) {    # Change this before pushing to GitHub
 
