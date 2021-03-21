@@ -299,13 +299,30 @@ write (int fd, void* buffer, unsigned size)
 static void 
 seek(int fd, unsigned position)
 {
-  return; 
+  // Change the next byte to be read or written in the file fd to position, 0 is the beginig.
+  // If position > filesize then it returns 0 bytes.
+  // If position > filesize then it writes 0 until filesize = position (PART 4)
+  // For this part if position > filesize and it tries to write then it returns an error.
+
+  int size = filesize(fd);
+
+  struct file *temp_file = get_file(fd);
+
+  if (position < size){
+    file_seek(temp_file, position);
+  }
+  else {
+    exit(-1);
+  }
 }
 
 static 
 unsigned tell (int fd)
 {
-  return 0;
+  // Returns the next byte to be read, in bytes.
+  struct file *temp_file = get_file(fd); 
+
+  return file_tell(temp_file);
 }
 
 static void 
