@@ -563,7 +563,7 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  return (MULTI_FP_INT(thread_current()->recent_cpu,100));
+  return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(thread_current()->recent_cpu,100));
 }
 
 /* Sort the ready thread list by priority */

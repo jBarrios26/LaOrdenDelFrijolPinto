@@ -363,9 +363,9 @@ sub read_loader {
   # Change this before pushing to GitHub
 
   # Jorge
-  $name = find_file ("/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/userprog/build/loader.bin"); 
+  # $name = find_file ("/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/userprog/build/loader.bin"); 
   # Gizeh
-  # $name = find_file ("/home/.../LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
+   $name = find_file ("/home/.../LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
   # Chato
   # $name =  find_file ("/home/student/LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
   # Juampa
