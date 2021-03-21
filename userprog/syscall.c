@@ -11,6 +11,8 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
@@ -29,12 +31,12 @@ static void seek(int fd, unsigned position);
 static unsigned tell (int fd);
 static void close(int fd);
 
-static struct file* get_file(int fd);
+static struct lock file_system_lock;
 
-void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init(&file_system_lock);
 }
 
 
@@ -58,6 +60,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   // Revisar que el puntero sea el correcto.
   int status;
   char* cmd_name;
+  char* file_name;
   
   int fp;
   char* buffer;
@@ -70,8 +73,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   switch (*(int*)f->esp)
   {
     case SYS_HALT:
-      printf("HALT");
+        shutdown_power_off();
       break;
+
     case SYS_EXIT:
       status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
       // TODO: Check for valid pointers.
@@ -106,18 +110,18 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_OPEN:
       printf("OPEN");
-      break;
 
+      file_name = (char*)(*((int*)f->esp + 1)); 
+       if (!verify_pointer(file_name))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+
+      f->eax = open(file_name);
+      break;
     case SYS_FILESIZE:
       printf("FILESIZE");
-
-      fp = (*((int*)f->esp + 1)); 
-      
-      // A0 = Bytes actualy read.
-      f->eax = filesize(fp);
-
-      printf("bytes: %d", f->eax);  
-
       break;
     case SYS_READ: 
       printf("READ");
@@ -132,7 +136,7 @@ syscall_handler (struct intr_frame *f UNUSED)
         exit(-1);
       }
 
-      // A0 = Bytes actualy read.
+      // AO = Bytes actualy read.
       f->eax = read(fp, buffer, size);
 
       printf("bytes: %d", f->eax);
@@ -176,18 +180,6 @@ verify_pointer(void *pointer)
   return valid; 
 }
 
-static struct file*
-get_file(int fd)
-{
-  struct file *fd_file = NULL;
-  return fd_file;
-}
-
-static void 
-halt(void)
-{
-  return;
-}
 
 static void 
 exit(int status)
@@ -253,20 +245,26 @@ remove(const char* file)
 static int 
 open(const char* file)
 {
+   struct thread *cur = thread_current();
+   struct  file *file_op = filesys_open(file);
+  if(file_op != NULL){
+   
+  }
   return 0;
 }
 
 static int 
 filesize(int fd)
 {
-  int size = 0;
-
-  struct file *temp_file = get_file(fd);
-
-  size = file_length(temp_file);
-  
-  return size;
+  return 0;
 }
+
+struct get_open_file * get_file(int fd){
+  struct file * opfile;
+  struct list_elem elem;
+  struct list * files = thread_current();
+}
+
 
 static int 
 read(int fd, char* buffer, unsigned size)
@@ -275,8 +273,10 @@ read(int fd, char* buffer, unsigned size)
 
   // Read from keyboard
   if (fd){
-    struct file *temp_file = get_file(fd);
-    read_size = file_read(temp_file, buffer, size);
+    // TODO Agree with Chato about the file_reading stuff
+    // if (readOK){
+    //   read_size = file_read(file_name, buffer, size);
+    // }
   }
   // Read from file
   else {
@@ -299,18 +299,12 @@ write (int fd, void* buffer, unsigned size)
 static void 
 seek(int fd, unsigned position)
 {
-  // Change the next byte to be read or written in the file fd to position, 0 is the beginig.
-  // If position > filesize then it returns 0 bytes.
-  // If position > filesize then it writes 0 until filesize = position (PART 4)
-  // For this part if position > filesize and it tries to write then it returns an error.
-  return;
-
+  return; 
 }
 
-static unsigned 
-tell (int fd)
+static 
+unsigned tell (int fd)
 {
-  // Returns the next byte to be read, in bytes.
   return 0;
 }
 

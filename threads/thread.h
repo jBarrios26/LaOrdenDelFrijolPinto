@@ -124,6 +124,15 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+  
+    /* Used in syscall open. */
+  struct get_open_file{
+    int fd;
+    struct list all_files; 
+    struct list all_thread;
+    struct list_elem af;
+    struct list_elem at;
+  };
 
 
 
