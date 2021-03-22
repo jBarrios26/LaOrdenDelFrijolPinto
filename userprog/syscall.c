@@ -17,6 +17,8 @@
 static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
 
+struct open_file * get_file(int fd);
+
 static void halt(void);
 static void exit(int status);
 static pid_t exec(const char* cmd_line);
@@ -277,7 +279,16 @@ open(const char* file)
 static int 
 filesize(int fd)
 {
-  return 0;
+  int size = 0;
+
+  struct open_file *opened_file = get_file(fd);
+  struct file *temp_file = opened_file->tfiles;
+  
+  lock_acquire(&file_system_lock);
+  size = file_length(temp_file);
+  lock_release(&file_system_lock);
+
+  return size;
 }
 
 struct open_file * get_file(int fd){
@@ -296,14 +307,17 @@ read(int fd, char* buffer, unsigned size)
 {
   int read_size = -1;
 
-  // Read from keyboard
-  if (fd){
-    // TODO Agree with Chato about the file_reading stuff
-    // if (readOK){
-    //   read_size = file_read(file_name, buffer, size);
-    // }
-  }
   // Read from file
+  if (fd){    
+    struct open_file *opened_file = get_file(fd);
+    if (opened_file != NULL){
+      struct file * temp_file = opened_file->tfiles;
+      lock_acquire(&file_system_lock);
+      read_size = file_read(temp_file, buffer, size);
+      lock_release(&file_system_lock);
+    }
+  }
+  // Read from keyboard
   else {
     int i = 0;
     while(i < size){
@@ -311,7 +325,6 @@ read(int fd, char* buffer, unsigned size)
     }
     read_size = size;
   }
-
   return read_size;
 }
 
@@ -324,30 +337,33 @@ write (int fd, void* buffer, unsigned size)
 static void 
 seek(int fd, unsigned position)
 {
-  // Change the next byte to be read or written in the file fd to position, 0 is the beginig.
-  // If position > filesize then it returns 0 bytes.
-  // If position > filesize then it writes 0 until filesize = position (PART 4)
-  // For this part if position > filesize and it tries to write then it returns an error.
-
   int size = filesize(fd);
 
-  struct file *temp_file = get_file(fd);
+  struct open_file *opened_file = get_file(fd);
+  struct file *temp_file = opened_file->tfiles;
 
   if (position < size){
+    lock_acquire(&file_system_lock);
     file_seek(temp_file, position);
+    lock_release(&file_system_lock);
   }
   else {
     exit(-1);
   }
 }
 
-static 
-unsigned tell (int fd)
+static unsigned 
+tell (int fd)
 {
   // Returns the next byte to be read, in bytes.
-  struct file *temp_file = get_file(fd); 
-
-  return file_tell(temp_file);
+  struct open_file *opened_file = get_file(fd);
+  struct file *temp_file = opened_file->tfiles;
+  
+  lock_acquire(&file_system_lock);
+  unsigned ret = file_tell(temp_file);
+  lock_release(&file_system_lock);
+  
+  return ret;
 }
 
 static void 
