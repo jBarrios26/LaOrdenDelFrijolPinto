@@ -32,11 +32,14 @@ static unsigned tell (int fd);
 static void close(int fd);
 
 static struct lock file_system_lock;
+static struct list all_files;
 
+void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&file_system_lock);
+  list_init(&all_files);
 }
 
 
@@ -107,6 +110,14 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_REMOVE:
       printf("REMOVE");
+        file_name = (char*)(*((int*)f->esp + 1)); 
+       if (!verify_pointer(file_name))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+
+      f->eax = remove(file_name);
       break;
     case SYS_OPEN:
       printf("OPEN");
@@ -239,6 +250,9 @@ create(const char* file, unsigned initial_size)
 static bool 
 remove(const char* file)
 {
+  lock_acquire(&file_system_lock);
+  if(filesys_remove(file)) return true;
+  lock_release(&file_system_lock);
   return false;
 }
 
@@ -246,11 +260,18 @@ static int
 open(const char* file)
 {
    struct thread *cur = thread_current();
+   lock_acquire(&file_system_lock);
    struct  file *file_op = filesys_open(file);
+   lock_release(&file_system_lock);
   if(file_op != NULL){
-   
+   struct open_file *op_file = malloc(sizeof(struct open_file));
+   op_file->fd = cur->fd_next++;
+   op_file->tfiles = op_file;
+   list_push_back(&cur->files, &op_file->at);
+   list_push_back(&all_files, &op_file->af);
+   return op_file->fd;
   }
-  return 0;
+  return -1;
 }
 
 static int 
@@ -259,10 +280,14 @@ filesize(int fd)
   return 0;
 }
 
-struct get_open_file * get_file(int fd){
-  struct file * opfile;
-  struct list_elem elem;
-  struct list * files = thread_current();
+struct open_file * get_file(int fd){
+  struct list * opfiles = &thread_current()->files;
+     struct list_elem *files= list_begin(opfiles);    
+     while (files != list_end(opfiles))
+    {   
+    struct open_file *open_file  = list_entry(files, struct open_file, af);
+        files = list_next(files);
+    }
 }
 
 
