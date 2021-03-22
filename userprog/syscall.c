@@ -166,6 +166,14 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_CLOSE:
       printf("CLOSE");
+
+      fp = *((int*)f->esp + 1); 
+       if (!verify_pointer(fp))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+      close(fp);
       break;
   }
   thread_exit ();
@@ -369,5 +377,13 @@ tell (int fd)
 static void 
 close(int fd)
 {
-  return;
+  struct open_file *openfile = get_file(fd);
+  if(openfile != NULL){
+    lock_acquire(&file_system_lock);
+    file_close(&openfile->tfiles);
+    lock_release(&file_system_lock);
+    list_remove(&openfile->at);
+    list_remove(&openfile->af);
+    free(openfile);
+  }
 }
