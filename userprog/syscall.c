@@ -109,6 +109,19 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_CREATE:
       printf("CREATE");
+      fp = (*((int*)f->esp + 1)); 
+      buffer = (char*)(*((int*)f->esp + 2));
+      size = (*((int*)f->esp + 3));
+
+      if (!verify_pointer(buffer))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+
+      // AO = Bytes actualy read.
+      f->eax = read(fp, buffer, size);
+
       break;
     case SYS_REMOVE:
       printf("REMOVE");
@@ -140,20 +153,14 @@ syscall_handler (struct intr_frame *f UNUSED)
       printf("READ");
 
       fp = (*((int*)f->esp + 1)); 
-      buffer = (char*)(*((int*)f->esp + 2));
-      size = (*((int*)f->esp + 3));
+      size = (*((int*)f->esp + 2));
 
-      if (!verify_pointer(buffer))
+      if (!verify_pointer(fp))
       {
         printf("puntero erroneo");
         exit(-1);
       }
-
-      // AO = Bytes actualy read.
-      f->eax = read(fp, buffer, size);
-
-      printf("bytes: %d", f->eax);
-
+      f->eax = create(fp, size);
       break;
     case SYS_WRITE:
       printf("WRITE");
@@ -254,6 +261,9 @@ wait(pid_t pid)
 static bool 
 create(const char* file, unsigned initial_size)
 {
+  lock_acquire(&file_system_lock);
+  if(filesys_create(file, initial_size)) return true;
+  lock_release(&file_system_lock);
   return false;
 }
 
