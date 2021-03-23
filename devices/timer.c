@@ -235,7 +235,7 @@ real_time_sleep (int64_t num, int32_t denom)
       /* Otherwise, use a busy-wait loop for more accurate
          sub-tick timing. */
       real_time_delay (num, denom); 
-    } 
+    }
 }
 
 /* Busy-wait for approximately NUM/DENOM seconds. */

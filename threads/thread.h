@@ -33,11 +33,13 @@ typedef int tid_t;
 #define RECENT_CPU_BEGIN 0
 
 /* A kernel thread or user process.
+
    Each thread structure is stored in its own 4 kB page.  The
    thread structure itself sits at the very bottom of the page
    (at offset 0).  The rest of the page is reserved for the
    thread's kernel stack, which grows downward from the top of
    the page (at offset 4 kB).  Here's an illustration:
+
         4 kB +---------------------------------+
              |          kernel stack           |
              |                |                |
@@ -59,18 +61,22 @@ typedef int tid_t;
              |               name              |
              |              status             |
         0 kB +---------------------------------+
+
    The upshot of this is twofold:
+
       1. First, `struct thread' must not be allowed to grow too
          big.  If it does, then there will not be enough room for
          the kernel stack.  Our base `struct thread' is only a
          few bytes in size.  It probably should stay well under 1
          kB.
+
       2. Second, kernel stacks must not be allowed to grow too
          large.  If a stack overflows, it will corrupt the thread
          state.  Thus, kernel functions should not allocate large
          structures or arrays as non-static local variables.  Use
          dynamic allocation with malloc() or palloc_get_page()
          instead.
+
    The first symptom of either of these problems will probably be
    an assertion failure in thread_current(), which checks that
    the `magic' member of the running thread's `struct thread' is
@@ -149,6 +155,7 @@ void remover_thread_durmiente(int64_t ticks);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
+
 int thread_get_priority (void);
 void thread_set_priority (int);
 
@@ -168,4 +175,3 @@ void thread_list_print(struct list *thread_list);
 bool value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
 bool priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux);
 #endif /* threads/thread.h */
-

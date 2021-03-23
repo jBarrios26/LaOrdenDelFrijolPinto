@@ -120,7 +120,7 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   
-struct thread *next_thread;
+  struct thread *next_thread;
   if (!list_empty (&sema->waiters)) 
   {
     list_sort (&sema->waiters, priority_value_less, NULL);
@@ -240,7 +240,6 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  thread_current ()->lock_holder = lock->holder;
 
   thread_current ()->lock_holder = lock->holder;
 
@@ -482,67 +481,6 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
 
-<<<<<<< HEAD
-}
-
-
-/*
-  Donor thread shares its priority to the thead that is holding the lock.
-  If another high priority thread has already donated to lock holder, the highest priority stays. 
-
-  Donor threads also donates its priority to locks that lock holder it's waiting
-void 
-donate_priority(struct thread *donor, struct lock *lock)
-{
-  struct thread *lock_holder = lock->holder;
-  
-  if (lock_holder == NULL)
-    return;
-
-  if (lock_holder->donated_priority == 0 && lock_holder->priority < donor->priority )
-  {
-    lock_holder->original_priority = lock_holder->priority;
-    lock_holder->priority = donor->priority;
-    lock_holder->donated_priority = donor->priority;
-  }
-}
-*/
-
-/* 
-  Returns to the original priority.
-void 
-return_priority(struct lock *lock)
-{
-  struct thread *lock_holder =lock->holder;
-
-  lock_holder->priority = lock_holder->original_priority;
-  lock_holder->original_priority = 64;
-  lock_holder->donated_priority = 64;
-
-}
-*/
-
-
-bool 
-donations_value_less(const struct list_elem* a, const struct list_elem* b, void* aux UNUSED)
-{
-  const int a_member = (list_entry(a, struct thread, elem))->priority;
-  const int b_member = (list_entry(b, struct thread, elem))->priority;
-  return a_member < b_member;
-}
-
-bool 
-sema_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
-{
-  struct semaphore_elem *a = list_entry (a_, struct semaphore_elem, elem);
-  struct semaphore_elem *b = list_entry (b_, struct semaphore_elem, elem);
-
-  const struct thread *t1 = list_entry (list_front(&a->semaphore.waiters), struct thread, elem);
-  const struct thread *t2 = list_entry (list_front(&b->semaphore.waiters), struct thread, elem);
-
-  return t1->priority <= t2->priority;
-=======
->>>>>>> checkpoint
 }
 
 

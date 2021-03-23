@@ -23,7 +23,6 @@
 #define THREAD_MAGIC 0xcd6abf4b
 
 static int load_avg;
-
 static struct list wait_sleeping_list;
 
 /* List of processes in THREAD_READY state, that is, processes
@@ -187,7 +186,6 @@ thread_create (const char *name, int priority,
   ASSERT (function != NULL);
 
   /* Allocate thread. */
- 
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
@@ -345,10 +343,13 @@ insert_in_waiting_list(int64_t ticks)
   old_level = intr_disable ();
 
   /* Remover el thread actual de "ready_list" e insertarlo en "lista_espera"
-     Cambia el status a THREAD_BLOCKED */
+  Cambiar su estatus a THREAD_BLOCKED, y definir su tiempo de expiracion */
   
   struct thread *thread_actual = thread_current ();
   thread_actual->time_sleeping = timer_ticks() + ticks;
+  
+  /*Donde TIEMPO_DORMIDO es el atributo de la estructura thread que usted
+    definió como paso inicial*/
   
   list_push_back(&wait_sleeping_list, &thread_actual->elem);
   thread_block();
@@ -445,11 +446,7 @@ thread_set_priority (int new_priority)
 {
   ASSERT (new_priority >= 0);
   ASSERT (new_priority < 64);
-<<<<<<< HEAD
-
-=======
   
->>>>>>> checkpoint
   const struct thread *max_priority_thread = get_max_priority_thread();
   struct thread *cur = thread_current();
   if (cur->original_priority != cur->priority)
@@ -569,7 +566,6 @@ thread_get_recent_cpu (void)
 {
   return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(thread_current()->recent_cpu,100));
 }
-
 /* Sort the ready thread list by priority */
 void 
 sort_ready_list(void)
