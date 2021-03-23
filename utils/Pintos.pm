@@ -373,7 +373,6 @@ sub read_loader {
   
   die "Cannot find loader, please go to /utils/Pintos.pm and see if your user is being used.\n" if !defined $name;
 
-
   my ($handle);
   open ($handle, '<', $name) or die "$name: open: $!\n";
   -s $handle == $LOADER_SIZE || -s $handle == 512

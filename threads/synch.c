@@ -242,6 +242,8 @@ lock_acquire (struct lock *lock)
 
   thread_current ()->lock_holder = lock->holder;
 
+  thread_current ()->lock_holder = lock->holder;
+
   enum intr_level old_level;
 
   old_level = intr_disable ();
@@ -480,6 +482,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
 
+<<<<<<< HEAD
 }
 
 
@@ -538,6 +541,8 @@ sema_value_less(const struct list_elem *a_, const struct list_elem *b_, void *au
   const struct thread *t2 = list_entry (list_front(&b->semaphore.waiters), struct thread, elem);
 
   return t1->priority <= t2->priority;
+=======
+>>>>>>> checkpoint
 }
 
 
@@ -584,4 +589,16 @@ donations_value_less(const struct list_elem* a, const struct list_elem* b, void*
   const int a_member = (list_entry(a, struct thread, elem))->priority;
   const int b_member = (list_entry(b, struct thread, elem))->priority;
   return a_member < b_member;
+}
+
+bool 
+sema_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
+{
+  struct semaphore_elem *a = list_entry (a_, struct semaphore_elem, elem);
+  struct semaphore_elem *b = list_entry (b_, struct semaphore_elem, elem);
+
+  const struct thread *t1 = list_entry (list_front(&a->semaphore.waiters), struct thread, elem);
+  const struct thread *t2 = list_entry (list_front(&b->semaphore.waiters), struct thread, elem);
+
+  return t1->priority <= t2->priority;
 }
