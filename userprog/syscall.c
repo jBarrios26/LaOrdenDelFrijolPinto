@@ -100,7 +100,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       cmd_name = (char*)(*((int*)f->esp + 1)); 
       if (!verify_pointer(cmd_name))
       {
-        printf("puntero erroneo");
         exit(-1);
         return;
       }
@@ -113,14 +112,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       process_wait(tid);
       break;
     case SYS_CREATE:
-      printf("CREATE");
       fp = (*((int*)f->esp + 1)); 
       buffer = (char*)(*((int*)f->esp + 2));
       size = (*((int*)f->esp + 3));
 
       if (!verify_pointer(buffer))
       {
-        printf("puntero erroneo");
         exit(-1);
       }
 
@@ -129,40 +126,31 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       break;
     case SYS_REMOVE:
-      printf("REMOVE");
-        file_name = (char*)(*((int*)f->esp + 1)); 
+      file_name = (char*)(*((int*)f->esp + 1)); 
        if (!verify_pointer(file_name))
       {
-        printf("puntero erroneo");
         exit(-1);
       }
 
       f->eax = remove(file_name);
       break;
     case SYS_OPEN:
-      printf("OPEN");
-
-      file_name = (char*)(*((int*)f->esp + 1)); 
+      file_name = (void*)(*((int*)f->esp + 1)); 
        if (!verify_pointer(file_name))
       {
-        printf("puntero erroneo");
         exit(-1);
       }
 
       f->eax = open(file_name);
       break;
     case SYS_FILESIZE:
-      printf("FILESIZE");
       break;
     case SYS_READ: 
-      printf("READ");
-
       fp = (*((int*)f->esp + 1)); 
       size = (*((int*)f->esp + 2));
 
       if (!verify_pointer(fp))
       {
-        printf("puntero erroneo");
         exit(-1);
       }
       f->eax = create(fp, size);
@@ -174,7 +162,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       if (!verify_pointer(buffer))
       {
-        printf("Puntero Erroneo");
         exit(-1);
       }
 
@@ -187,12 +174,9 @@ syscall_handler (struct intr_frame *f UNUSED)
       printf("TELL");
       break;
     case SYS_CLOSE:
-      printf("CLOSE");
-
       fp = *((int*)f->esp + 1); 
        if (!verify_pointer(fp))
       {
-        printf("puntero erroneo");
         exit(-1);
       }
       close(fp);
