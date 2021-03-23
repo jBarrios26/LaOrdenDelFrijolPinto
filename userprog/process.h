@@ -19,6 +19,6 @@ tid_t process_execute (const char *file_name);
 int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
-static unsigned children_hash (const  struct hash_elem *elem, void *aux UNUSED); 
-static bool childres_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+// static unsigned children_hash (const  struct hash_elem *elem, void *aux UNUSED); 
+// static bool childres_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 #endif /* userprog/process.h */

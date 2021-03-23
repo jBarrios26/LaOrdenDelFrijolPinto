@@ -26,6 +26,7 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+void delete_children(struct hash_elem *elem, void *aux);
 
 
 
@@ -66,30 +67,18 @@ process_execute (const char *file_name)
   strlcpy(args, save_ptr, PGSIZE);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process,args);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  
   if (!thread_current()->children_init)
   {
     hash_init(&thread_current()->children, children_hash, childres_hash_less, NULL);
-    lock_acquire(&cur->process_lock);
-  
-    while(!cur->child_load)
-      cond_wait(&cur->msg_parent, &cur->process_lock);
-    
-    if (!cur->child_status)
-      return TID_ERROR;
-    else
-    {
       struct children_process *child_p = malloc(sizeof(struct children_process));
       child_p->pid = tid;
       child_p->status = -1;
       child_p->finish = false; 
       hash_insert(&cur->children, &child_p->elem);
-    }
-  
-    cur->child_load = false;
-    cur->child_status = false;
-    lock_release(&cur->process_lock);
     thread_current()->children_init = true;
   }
   return tid;
@@ -123,22 +112,24 @@ start_process (void *file_name_)
   struct children_process child;
   child.pid = cur->tid;
   struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
+
   if (parent){
   /* Acquire lock from parent to modify state variables and signal him.*/
-    lock_acquire(&parent->process_lock);
     if (!success) 
     {
+      lock_acquire(&parent->process_lock);
       parent->child_load = true;
       cond_signal(&parent->msg_parent, &parent->process_lock);
       lock_release(&parent->process_lock);
       thread_exit ();
     }else
     {
+      lock_acquire(&parent->process_lock);
       parent->child_status = true;
       parent->child_load = true;
       cond_signal(&parent->msg_parent, &parent->process_lock);
+      lock_release(&parent->process_lock);
     }
-    lock_release(&parent->process_lock);
   }
 
   /* Start the user process by simulating a return from an
@@ -169,7 +160,7 @@ process_wait (tid_t child_tid)
   // get the child process from parent children hash table.
   struct children_process child;
   child.pid = child_tid;
-  
+
  struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
   /*
     If child_elem is NULL then this child_tid doesn't map to a child process of current thread, return -1.
@@ -179,13 +170,12 @@ process_wait (tid_t child_tid)
   {
     return -1; 
   }
-  debug_backtrace();
+  //debug_backtrace_all();
   /*
     If finish is true then child process maybe have exited on their own or current may have already waited for him once.
   */
   struct children_process *child_control;
   child_control = hash_entry(child_elem, struct children_process, elem);
-  printf("%d\n\n",child_control->pid);
   if (child_control->finish){
     return child_control->status;
   }
@@ -204,11 +194,23 @@ process_wait (tid_t child_tid)
 void
 process_exit (void)
 {
+  
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+
+  /* Before releasing virtual memory page, realease all locks and children hash*/
+
+  hash_clear(&cur->children, delete_children);
+
+  struct lock *lock;
+  while (!list_empty(&cur->locks))
+  {
+    lock = list_entry(list_pop_back(&cur->locks), struct lock, elem);
+    lock_release(lock);
+  }
+
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -625,7 +627,7 @@ setup_stack (void **esp, char *args, char *name)
   start_stack += sizeof(void*); 
   memset(*esp, 0, sizeof(void*));
 
-  hex_dump(PHYS_BASE - (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), *esp, (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), true);
+  //hex_dump(PHYS_BASE - (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), *esp, (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), true);
   return success;
 }
 
@@ -647,4 +649,11 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+void 
+delete_children(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct children_process *child = hash_entry(elem, struct children_process, elem);
+  free(child);
 }

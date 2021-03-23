@@ -282,6 +282,7 @@ lock_acquire (struct lock *lock)
   } */
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  list_push_back(&cur->locks, &lock->elem);
   cur->waiting = NULL;
   intr_set_level (old_level);
 }
@@ -351,7 +352,7 @@ lock_release (struct lock *lock)
     cur->priority = lock2->holder->priority;
   } */
 
-
+  list_remove(&lock->elem);
 
   sema_up (&lock->semaphore);
   intr_set_level (old_level);

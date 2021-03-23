@@ -473,7 +473,8 @@ thread_get_priority (void)
 }
 
 /*
-  Search a thread by TID in all threads list.
+  Search a thread by TID in all threads list. Returns a thread pointer if tid 
+  is in all_list, else returns NULL pointer. 
 */
 struct thread
 *get_thread(tid_t tid)

@@ -2,6 +2,7 @@
 #include "userprog/process.h"
 #include "userprog/syscall.h"
 
+#include "lib/kernel/stdio.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 
@@ -11,9 +12,15 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
 
 static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
+int write_to_console(void* buffer, unsigned size);
 
 static void halt(void);
 static void exit(int status);
@@ -28,6 +35,8 @@ static int write (int fd, void* buffer, unsigned size);
 static void seek(int fd, unsigned position);
 static unsigned tell (int fd);
 static void close(int fd);
+
+void delete_parent_from_child(struct hash_elem *elem, void *aux);
 
 void
 syscall_init (void) 
@@ -76,12 +85,9 @@ syscall_handler (struct intr_frame *f UNUSED)
       status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
       // TODO: Check for valid pointers.
       // EXIT does not need to check if pointer is valid because it's argument is not a pointer. 
-      printf("EXIT STATUS %d", status);
-      
       exit(status);
       break;
     case SYS_EXEC:
-      printf("EXEC");
       // Get the name of the new process, the pointer is stored in esp + 1 (first argument of SYS_EXEC),
       // ((int*)f->esp +1) returns the address of the argument, then need to dereference to then cast to char*.
       cmd_name = (char*)(*((int*)f->esp + 1)); 
@@ -131,8 +137,17 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       break;
     case SYS_WRITE:
-      printf("WRITE");
-      f->eax = 1;
+      fp = *((int*)f->esp + 1);
+      buffer = (void*)(*((int*)f->esp + 2));
+      size = *((int*)f->esp + 3);
+
+      if (!verify_pointer(buffer))
+      {
+        printf("Puntero Erroneo");
+        exit(-1);
+      }
+
+      f->eax = write(fp, buffer, size);
       break;
     case SYS_SEEK:
       printf("SEEK");
@@ -144,7 +159,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       printf("CLOSE");
       break;
   }
-  thread_exit ();
 }
 
 
@@ -180,12 +194,30 @@ exit(int status)
 {
   struct thread *cur = thread_current();
   // Process termination message. 
-  printf("<%s>: exit(%d)", cur->name, status);
+  printf("%s: exit(%d)\n", cur->name, status);
 
-  //TODO: Comunicate children processes that parent is exiting.
-  //TODO: Free resources of the thread.
   //TODO: Communicate parent the status.
-  process_exit();
+  struct thread *parent = get_thread(cur->parent);
+  if (parent)
+  {
+    struct children_process child;
+    child.pid = cur->tid;
+    struct children_process *child_control = hash_entry(hash_find(&parent->children, &child.elem), struct children_process, elem);
+    if (child_control){
+      child_control->finish = true; 
+      child_control->status = status;
+      lock_acquire(&parent->process_lock);
+      cond_signal(&parent->msg_parent, &parent->process_lock);
+      lock_release(&parent->process_lock);
+    }
+  }
+  
+  //TODO: Comunicate children processes that parent is exiting.
+  hash_apply(&cur->children, delete_parent_from_child);
+  //TODO: Free resources of the thread.
+
+  
+  thread_exit();
 }
 
 static pid_t 
@@ -275,7 +307,22 @@ read(int fd, char* buffer, unsigned size)
 static int 
 write (int fd, void* buffer, unsigned size)
 {
-  return 0;
+  switch (fd)
+  {
+    case STDIN_FILENO:
+      return 0;
+    case STDOUT_FILENO:
+      putbuf((char*) buffer, size);
+      break;
+    default:
+      break;
+  }
+}
+
+int 
+write_to_console(void *buffer, unsigned size)
+{
+  
 }
 
 static void 
@@ -295,3 +342,17 @@ close(int fd)
 {
   return;
 }
+
+void 
+delete_parent_from_child(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct children_process *child = hash_entry(elem, struct children_process, elem);
+  struct thread *child_thread = get_thread(child->pid);
+
+  if (child_thread)
+  {
+    child_thread->parent = 0;
+  }
+
+}
+
