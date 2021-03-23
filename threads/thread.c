@@ -212,6 +212,10 @@ thread_create (const char *name, int priority,
   }
 
   // If it's MLFQS
+  if (thread_mlfqs){
+    calculate_recent_cpu(t, NULL);
+    recalculate_priority(t, NULL);
+  }
 
   return tid;
 }
@@ -704,6 +708,14 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
   
   intr_set_level (old_level);
+
+  if(thread_mlfqs){
+    t->nice = 0;
+    t->recent_cpu = 0; 
+  } else{
+    t->nice = thread_get_nice ();
+    t->recent_cpu = thread_get_recent_cpu ();
+  }
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
