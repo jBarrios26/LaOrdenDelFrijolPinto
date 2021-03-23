@@ -496,7 +496,7 @@ struct thread
 /* Recalculates the priority based on priority = PRI_MAX - (recent_cpu / 4) - (nice * 2).
    Aproximation to the nearest integer*/
 void
-recalcute_priority(struct thread *current_thread, void *aux UNUSED )
+recalculate_priority(struct thread *current_thread, void *aux UNUSED )
 {
   ASSERT(is_thread (current_thread));
 
@@ -554,6 +554,25 @@ thread_set_nice (int nice UNUSED)
 
   curr = thread_current ();
   curr->nice = nice;
+  //vuelve a calcular la prioridad, pero basandose en MLFQS
+  recalculate_priority(curr, NULL);
+
+  //Si está en READY, vuelve a la cola de READY, 
+  //Si está en RUNNING? entonces mira quien tiena la prioridad más alta en la lista
+  // si es pequeña, hace yield()
+
+  if (curr != idle_thread){
+    if (curr->status == THREAD_READY){
+      enum intr_level old_level;
+      old_level = intr_disable(); 
+      list_remove(&curr->elem); 
+      list_insert_ordered (&ready_list, &curr->elem, priority_value_less, NULL);
+      intr_set_level (old_level);
+    } else if (curr->status == THREAD_RUNNING){
+      if (list_entry (list_begin (&ready_list), struct thread, elem)->priority > curr->priority) thread_yield();
+    }
+  }
+
 }
 
 /* Returns the current thread's nice value. */
