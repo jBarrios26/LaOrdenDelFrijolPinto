@@ -74,112 +74,134 @@ syscall_handler (struct intr_frame *f UNUSED)
   int tid;
   char* file_name;
   
-  int fp;
+  int fd;
   char* buffer;
+  unsigned position;
   unsigned size;
 
   if (!verify_pointer(f->esp))
   {
     exit(-1);
   }
-  switch (*(int*)f->esp)
-  {
+
+  switch (*(int*)f->esp){
     case SYS_HALT:
       shutdown_power_off();
       break;
-      
+
+    // *************************************************************************************************************************************************
     case SYS_EXIT:
       status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
+
       // TODO: Check for valid pointers.
       // EXIT does not need to check if pointer is valid because it's argument is not a pointer. 
       exit(status);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_EXEC:
       // Get the name of the new process, the pointer is stored in esp + 1 (first argument of SYS_EXEC),
       // ((int*)f->esp +1) returns the address of the argument, then need to dereference to then cast to char*.
       cmd_name = (char*)(*((int*)f->esp + 1)); 
-      if (!verify_pointer(cmd_name))
-      {
+
+      if (!verify_pointer(cmd_name)){
         exit(-1);
         return;
       }
-
       printf("%s", cmd_name);
       f->eax = exec(cmd_name);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_WAIT:
       tid = *((int*)f->esp + 1); 
+
       process_wait(tid);
       break;
-    case SYS_CREATE:
-      fp = (*((int*)f->esp + 1)); 
+
+    // *************************************************************************************************************************************************
+    case SYS_READ:
+      fd = (*((int*)f->esp + 1)); 
       buffer = (char*)(*((int*)f->esp + 2));
       size = (*((int*)f->esp + 3));
 
-      if (!verify_pointer(buffer))
-      {
+      if (!verify_pointer(buffer)){
         exit(-1);
       }
-
-      // AO = Bytes actualy read.
-      f->eax = read(fp, buffer, size);
-
+      // A0 = Bytes actualy read.
+      f->eax = read(fd, buffer, size);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_REMOVE:
       file_name = (char*)(*((int*)f->esp + 1)); 
-       if (!verify_pointer(file_name))
-      {
+
+      if (!verify_pointer(file_name)){
         exit(-1);
       }
-
       f->eax = remove(file_name);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_OPEN:
       file_name = (void*)(*((int*)f->esp + 1)); 
-       if (!verify_pointer(file_name))
-      {
+
+      if (!verify_pointer(file_name)){
         exit(-1);
       }
-
       f->eax = open(file_name);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_FILESIZE:
+      fd = (*((int*)f->esp + 1)); 
+
+      f->eax = filesize(fd);
       break;
-    case SYS_READ: 
-      fp = (*((int*)f->esp + 1)); 
+
+    // *************************************************************************************************************************************************
+    case SYS_CREATE: 
+      fd = (*((int*)f->esp + 1)); 
       size = (*((int*)f->esp + 2));
 
-      if (!verify_pointer(fp))
-      {
-        exit(-1);
-      }
-      f->eax = create(fp, size);
+      f->eax = create(fd, size);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_WRITE:
-      fp = *((int*)f->esp + 1);
+      fd = *((int*)f->esp + 1);
       buffer = (void*)(*((int*)f->esp + 2));
       size = *((int*)f->esp + 3);
 
-      if (!verify_pointer(buffer))
-      {
+      if (!verify_pointer(buffer)){
         exit(-1);
       }
+      f->eax = write(fd, buffer, size);
+      break;
 
-      f->eax = write(fp, buffer, size);
-      break;
+    // *************************************************************************************************************************************************
     case SYS_SEEK:
-      printf("SEEK");
+      fd = *((int*)f->esp + 1);
+      position = *((int*)f->esp + 2);
+
+      seek(fd, position);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_TELL:
-      printf("TELL");
+      fd = *((int*)f->esp + 1);
+
+      f->eax = tell(fd);
       break;
+
+    // *************************************************************************************************************************************************
     case SYS_CLOSE:
-      fp = *((int*)f->esp + 1); 
-       if (!verify_pointer(fp))
-      {
+      fd = *((int*)f->esp + 1); 
+
+      if (!verify_pointer(fd)){
         exit(-1);
       }
-      close(fp);
+      close(fd);
       break;
   }
 }
@@ -402,7 +424,7 @@ seek(int fd, unsigned position)
 }
 
 static unsigned 
-tell (int fd)
+tell(int fd)
 {
   // Returns the next byte to be read, in bytes.
   struct open_file *opened_file = get_file(fd);
