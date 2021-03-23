@@ -22,6 +22,8 @@ static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
 int write_to_console(void* buffer, unsigned size);
 
+struct open_file * get_file(int fd);
+
 static void halt(void);
 static void exit(int status);
 static pid_t exec(const char* cmd_line);
@@ -37,11 +39,15 @@ static unsigned tell (int fd);
 static void close(int fd);
 
 void delete_parent_from_child(struct hash_elem *elem, void *aux);
+static struct lock file_system_lock;
+static struct list all_files;
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init(&file_system_lock);
+  list_init(&all_files);
 }
 
 
@@ -66,6 +72,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   int status;
   char* cmd_name;
   int tid;
+  char* file_name;
   
   int fp;
   char* buffer;
@@ -107,19 +114,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_CREATE:
       printf("CREATE");
-      break;
-    case SYS_REMOVE:
-      printf("REMOVE");
-      break;
-    case SYS_OPEN:
-      printf("OPEN");
-      break;
-    case SYS_FILESIZE:
-      printf("FILESIZE");
-      break;
-    case SYS_READ: 
-      printf("READ");
-
       fp = (*((int*)f->esp + 1)); 
       buffer = (char*)(*((int*)f->esp + 2));
       size = (*((int*)f->esp + 3));
@@ -133,8 +127,45 @@ syscall_handler (struct intr_frame *f UNUSED)
       // AO = Bytes actualy read.
       f->eax = read(fp, buffer, size);
 
-      printf("bytes: %d", f->eax);
+      break;
+    case SYS_REMOVE:
+      printf("REMOVE");
+        file_name = (char*)(*((int*)f->esp + 1)); 
+       if (!verify_pointer(file_name))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
 
+      f->eax = remove(file_name);
+      break;
+    case SYS_OPEN:
+      printf("OPEN");
+
+      file_name = (char*)(*((int*)f->esp + 1)); 
+       if (!verify_pointer(file_name))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+
+      f->eax = open(file_name);
+      break;
+    case SYS_FILESIZE:
+      printf("FILESIZE");
+      break;
+    case SYS_READ: 
+      printf("READ");
+
+      fp = (*((int*)f->esp + 1)); 
+      size = (*((int*)f->esp + 2));
+
+      if (!verify_pointer(fp))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+      f->eax = create(fp, size);
       break;
     case SYS_WRITE:
       fp = *((int*)f->esp + 1);
@@ -157,6 +188,14 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_CLOSE:
       printf("CLOSE");
+
+      fp = *((int*)f->esp + 1); 
+       if (!verify_pointer(fp))
+      {
+        printf("puntero erroneo");
+        exit(-1);
+      }
+      close(fp);
       break;
   }
 }
@@ -183,11 +222,6 @@ verify_pointer(void *pointer)
   return valid; 
 }
 
-static void 
-halt(void)
-{
-  return;
-}
 
 static void 
 exit(int status)
@@ -259,40 +293,81 @@ wait(pid_t pid)
 static bool 
 create(const char* file, unsigned initial_size)
 {
+  lock_acquire(&file_system_lock);
+  if(filesys_create(file, initial_size)) return true;
+  lock_release(&file_system_lock);
   return false;
 }
 
 static bool 
 remove(const char* file)
 {
+  lock_acquire(&file_system_lock);
+  if(filesys_remove(file)) return true;
+  lock_release(&file_system_lock);
   return false;
 }
 
 static int 
 open(const char* file)
 {
-  return 0;
+   struct thread *cur = thread_current();
+   lock_acquire(&file_system_lock);
+   struct  file *file_op = filesys_open(file);
+   lock_release(&file_system_lock);
+  if(file_op != NULL){
+   struct open_file *op_file = malloc(sizeof(struct open_file));
+   op_file->fd = cur->fd_next++;
+   op_file->tfiles = op_file;
+   list_push_back(&cur->files, &op_file->at);
+   list_push_back(&all_files, &op_file->af);
+   return op_file->fd;
+  }
+  return -1;
 }
 
 static int 
 filesize(int fd)
 {
-  return 0;
+  int size = 0;
+
+  struct open_file *opened_file = get_file(fd);
+  struct file *temp_file = opened_file->tfiles;
+  
+  lock_acquire(&file_system_lock);
+  size = file_length(temp_file);
+  lock_release(&file_system_lock);
+
+  return size;
 }
+
+struct open_file * get_file(int fd){
+  struct list * opfiles = &thread_current()->files;
+     struct list_elem *files= list_begin(opfiles);    
+     while (files != list_end(opfiles))
+    {   
+    struct open_file *open_file  = list_entry(files, struct open_file, af);
+        files = list_next(files);
+    }
+}
+
 
 static int 
 read(int fd, char* buffer, unsigned size)
 {
   int read_size = -1;
 
-  // Read from keyboard
-  if (fd){
-    // TODO Agree with Chato about the file_reading stuff
-    // if (readOK){
-    //   read_size = file_read(file_name, buffer, size);
-    // }
-  }
   // Read from file
+  if (fd){    
+    struct open_file *opened_file = get_file(fd);
+    if (opened_file != NULL){
+      struct file * temp_file = opened_file->tfiles;
+      lock_acquire(&file_system_lock);
+      read_size = file_read(temp_file, buffer, size);
+      lock_release(&file_system_lock);
+    }
+  }
+  // Read from keyboard
   else {
     int i = 0;
     while(i < size){
@@ -300,7 +375,6 @@ read(int fd, char* buffer, unsigned size)
     }
     read_size = size;
   }
-
   return read_size;
 }
 
@@ -328,19 +402,47 @@ write_to_console(void *buffer, unsigned size)
 static void 
 seek(int fd, unsigned position)
 {
-  return; 
+  int size = filesize(fd);
+
+  struct open_file *opened_file = get_file(fd);
+  struct file *temp_file = opened_file->tfiles;
+
+  if (position < size){
+    lock_acquire(&file_system_lock);
+    file_seek(temp_file, position);
+    lock_release(&file_system_lock);
+  }
+  else {
+    exit(-1);
+  }
 }
 
-static 
-unsigned tell (int fd)
+static unsigned 
+tell (int fd)
 {
-  return 0;
+  // Returns the next byte to be read, in bytes.
+  struct open_file *opened_file = get_file(fd);
+  struct file *temp_file = opened_file->tfiles;
+  
+  lock_acquire(&file_system_lock);
+  unsigned ret = file_tell(temp_file);
+  lock_release(&file_system_lock);
+  
+  return ret;
 }
 
 static void 
 close(int fd)
 {
-  return;
+  struct open_file *openfile = get_file(fd);
+  if(openfile != NULL){
+    lock_acquire(&file_system_lock);
+    file_close(&openfile->tfiles);
+    lock_release(&file_system_lock);
+    list_remove(&openfile->at);
+    list_remove(&openfile->af);
+    free(openfile);
+  }
 }
 
 void 

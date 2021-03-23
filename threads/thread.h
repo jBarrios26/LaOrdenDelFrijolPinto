@@ -92,6 +92,7 @@ struct thread
     int priority;                       /* Priority. */
     int nice;
     struct list_elem allelem;           /* List element for all threads list. */
+  
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -121,10 +122,22 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+    /* Used in syscall open. */
+     int fd_next;                             /* ID of fiel descriptor*/
+     struct list files;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
   };
 
+  struct open_file{
+    int fd;
+    struct file *tfiles;
+    struct list_elem af;
+    struct list_elem at;
+  };
+  
 
 
 /* If false (default), use round-robin scheduler.
