@@ -104,6 +104,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  load_avg = 0;   // se inicializa en 0
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -209,6 +210,8 @@ thread_create (const char *name, int priority,
   if (thread_current ()->priority < t->priority){
     thread_yield();
   }
+
+  // If it's MLFQS
 
   return tid;
 }
@@ -339,9 +342,6 @@ insert_in_waiting_list(int64_t ticks)
   
   struct thread *thread_actual = thread_current ();
   thread_actual->time_sleeping = timer_ticks() + ticks;
-  
-  /*Donde TIEMPO_DORMIDO es el atributo de la estructura thread que usted
-    definió como paso inicial*/
   
   list_push_back(&wait_sleeping_list, &thread_actual->elem);
   thread_block();
