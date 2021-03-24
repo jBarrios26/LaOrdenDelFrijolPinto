@@ -93,6 +93,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXIT:
       status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
 
+      if (!verify_pointer(status)){
+        exit(-1);
+        return;
+      }
+
       // TODO: Check for valid pointers.
       // EXIT does not need to check if pointer is valid because it's argument is not a pointer. 
       exit(status);
@@ -108,14 +113,19 @@ syscall_handler (struct intr_frame *f UNUSED)
         exit(-1);
         return;
       }
+
       printf("%s", cmd_name);
       f->eax = exec(cmd_name);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_WAIT:
-      tid = *((int*)f->esp + 1); 
+      tid = *((int*)f->esp + 1);
 
+      if (!verify_pointer(tid)){
+        exit(-1);
+        return;
+      }
       process_wait(tid);
       break;
 
@@ -125,9 +135,19 @@ syscall_handler (struct intr_frame *f UNUSED)
       buffer = (char*)(*((int*)f->esp + 2));
       size = (*((int*)f->esp + 3));
 
-      if (!verify_pointer(buffer)){
+      if (!verify_pointer(fd)){
         exit(-1);
+        return;
       }
+      else if (!verify_pointer(buffer)){
+        exit(-1);
+        return;
+      }
+      else if (!verify_pointer(size)){
+        exit(-1);
+        return;
+      }
+
       // A0 = Bytes actualy read.
       f->eax = read(fd, buffer, size);
       break;
@@ -149,12 +169,18 @@ syscall_handler (struct intr_frame *f UNUSED)
       if (!verify_pointer(file_name)){
         exit(-1);
       }
+
       f->eax = open(file_name);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_FILESIZE:
       fd = (*((int*)f->esp + 1)); 
+
+      if (!verify_pointer(fd)){
+        exit(-1);
+        return;
+      }
 
       f->eax = filesize(fd);
       break;
@@ -163,6 +189,15 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE: 
       fd = (*((int*)f->esp + 1)); 
       size = (*((int*)f->esp + 2));
+
+      if (!verify_pointer(fd)){
+        exit(-1);
+        return;
+      }
+      else if (!verify_pointer(size)){
+        exit(-1);
+        return;
+      }
 
       f->eax = create(fd, size);
       break;
@@ -173,9 +208,18 @@ syscall_handler (struct intr_frame *f UNUSED)
       buffer = (void*)(*((int*)f->esp + 2));
       size = *((int*)f->esp + 3);
 
-      if (!verify_pointer(buffer)){
+      if (!verify_pointer(fd)){
         exit(-1);
       }
+      else if (!verify_pointer(buffer)){
+        exit(-1);
+        return;
+      }
+      else if (!verify_pointer(size)){
+        exit(-1);
+        return;
+      }
+      
       f->eax = write(fd, buffer, size);
       break;
 
@@ -184,12 +228,26 @@ syscall_handler (struct intr_frame *f UNUSED)
       fd = *((int*)f->esp + 1);
       position = *((int*)f->esp + 2);
 
+      if (!verify_pointer(fd)){
+        exit(-1);
+        return;
+      }
+      else if (!verify_pointer(position)){
+        exit(-1);
+        return;
+      }
+
       seek(fd, position);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_TELL:
       fd = *((int*)f->esp + 1);
+      
+      if (!verify_pointer(fd)){
+        exit(-1);
+        return;
+      }
 
       f->eax = tell(fd);
       break;
@@ -200,6 +258,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       if (!verify_pointer(fd)){
         exit(-1);
+        return;
       }
       close(fd);
       break;
