@@ -107,6 +107,7 @@ struct thread
     int original_priority;
 
     /* Process variables */
+    int child_cor;
     tid_t parent;
     tid_t child_waiting;
     bool child_load;

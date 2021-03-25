@@ -78,6 +78,7 @@ process_execute (const char *file_name)
       child_p->pid = tid;
       child_p->status = -1;
       child_p->finish = false; 
+      child_p->parent_waited = false;
       hash_insert(&cur->children, &child_p->elem);
     thread_current()->children_init = true;
   }
@@ -127,6 +128,7 @@ start_process (void *file_name_)
       lock_acquire(&parent->process_lock);
       parent->child_status = true;
       parent->child_load = true;
+      //printf("\n\n%s Le avisa al parent %d exito", cur->name, parent->tid);
       cond_signal(&parent->msg_parent, &parent->process_lock);
       lock_release(&parent->process_lock);
     }
@@ -156,7 +158,7 @@ process_wait (tid_t child_tid)
 {
   struct thread *cur;
   cur = thread_current();
-
+  
   // get the child process from parent children hash table.
   struct children_process child;
   child.pid = child_tid;
@@ -176,15 +178,23 @@ process_wait (tid_t child_tid)
   */
   struct children_process *child_control;
   child_control = hash_entry(child_elem, struct children_process, elem);
+  
+  if (child_control->parent_waited)
+  {
+    return -1;
+  }
   if (child_control->finish){
+    child_control->parent_waited = true;
     return child_control->status;
   }
+  child_control->parent_waited = true;
   lock_acquire(&cur->process_lock);
     cur->child_waiting = child_tid;
     while (!child_control->finish)
     {
       cond_wait(&cur->msg_parent, &cur->process_lock);
     }
+    // printf("VA a despertarr, %d", cur->tid);
     cur->waiting = 0; 
   lock_release(&cur->process_lock);
   return child_control->status;
@@ -340,7 +350,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", t->name);
       goto done; 
     }
-
+  file_deny_write(file);
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -512,6 +522,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       uint8_t *kpage = palloc_get_page (PAL_USER);
       if (kpage == NULL)
         return false;
+      
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
@@ -573,11 +584,11 @@ setup_stack (void **esp, char *args, char *name)
           strlcat(aux, " ", PGSIZE);
           strlcat(aux, reverse_args, PGSIZE);
           strlcpy(reverse_args, aux, PGSIZE);
+          ++argc;
         }
-  
   void *addresses[argc+1];
   char *save;
-
+  argc = 0;
   // PUSH strings of args to the stack. 
   for (token = strtok_r (reverse_args, " ", &save_ptr); token != NULL;
         token = strtok_r (NULL, " ", &save_ptr))

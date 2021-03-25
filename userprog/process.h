@@ -10,8 +10,10 @@
 */
 struct children_process{
     struct hash_elem elem;
+    int child_id;
     int pid; 
     int status;  
+    bool parent_waited;
     bool finish; 
 };
 

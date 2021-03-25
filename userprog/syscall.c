@@ -15,6 +15,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
+#include "devices/timer.h"
+
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 
@@ -39,8 +41,18 @@ static unsigned tell (int fd);
 static void close(int fd);
 
 void delete_parent_from_child(struct hash_elem *elem, void *aux);
+void print_children(struct hash_elem *elem, void *aux);
 static struct lock file_system_lock;
 static struct list all_files;
+
+void 
+print_children(struct hash_elem *elem, void *aux)
+{
+  struct children_process *child = hash_entry(elem, struct children_process, elem);
+  if (!child) printf("NULL");
+  else {struct thread *child_thread = get_thread(child->pid);
+  printf("%s -> ", child_thread->name);}
+}
 
 void
 syscall_init (void) 
@@ -91,6 +103,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     // *************************************************************************************************************************************************
     case SYS_EXIT:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
       status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
 
       // TODO: Check for valid pointers.
@@ -108,15 +122,13 @@ syscall_handler (struct intr_frame *f UNUSED)
         exit(-1);
         return;
       }
-      printf("%s", cmd_name);
       f->eax = exec(cmd_name);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_WAIT:
       tid = *((int*)f->esp + 1); 
-
-      process_wait(tid);
+      f->eax = process_wait(tid);
       break;
 
     // *************************************************************************************************************************************************
@@ -220,10 +232,10 @@ verify_pointer(void *pointer)
   bool valid = true;
 
   if (!is_user_vaddr(pointer) || pointer == NULL)
-    valid = false;
+      return false;
   
   if (pagedir_get_page(cur->pagedir, pointer) == NULL)
-    valid = false;
+      return false;
   
   return valid; 
 }
@@ -235,17 +247,20 @@ exit(int status)
   struct thread *cur = thread_current();
   // Process termination message. 
   printf("%s: exit(%d)\n", cur->name, status);
-
   //TODO: Communicate parent the status.
+  //printf("\n%s sale %lu\n", cur->name, timer_ticks());
   struct thread *parent = get_thread(cur->parent);
+  //printf("\n\n%d %d\n\n", cur->parent, hash_size(&parent->children));
   if (parent)
   {
     struct children_process child;
     child.pid = cur->tid;
     struct children_process *child_control = hash_entry(hash_find(&parent->children, &child.elem), struct children_process, elem);
+    //printf("Se va a despertar el padre");
     if (child_control){
       child_control->finish = true; 
       child_control->status = status;
+      //printf("SE va a despertar al padre");
       lock_acquire(&parent->process_lock);
       cond_signal(&parent->msg_parent, &parent->process_lock);
       lock_release(&parent->process_lock);
@@ -265,24 +280,29 @@ exec(const char* cmd_line)
 {
   tid_t child;
   struct thread *cur = thread_current();
-  // Create the process, start to load the new process and returns the TID (PID).
+  // Create the process, start to load the new process and returns the TID (PID)
   child = process_execute(cmd_line);
-  // Use a monitor that  allows the child to message his parent.
-  lock_acquire(&cur->process_lock);
-  // If child hasn't load then wait. To avoid race conditions.
-  while(!cur->child_load)
-    cond_wait(&cur->msg_parent, &cur->process_lock);
-  // Check the exec_status of child.
-  if (!cur->child_status)
-    child = -1;
-  else
-  {
+  if (child == -1) 
+    return TID_ERROR;
+  else{
     struct children_process *child_p = malloc(sizeof(struct children_process));
+    //printf("\n%s crea %lu\n\n", cur->name, timer_ticks());
     child_p->pid = child;
     child_p->status = -1;
     child_p->finish = false; 
+    child_p->parent_waited = false;
     hash_insert(&cur->children, &child_p->elem);
   }
+  // Use a monitor that  allows the child to message his parent.
+  lock_acquire(&cur->process_lock);
+  // If child hasn't load then wait. To avoid race conditions.
+  //printf("\n\n%s, Ya mando a ejecutar a child %d", cur->name, child);
+  if(!cur->child_load)
+    cond_wait(&cur->msg_parent, &cur->process_lock);
+  //printf("\n\n%s, Child le aviso que fue exitoso %d", cur->name, child);
+  // Check the exec_status of child.
+  if (!cur->child_status)
+    child = -1;
   
   cur->child_load = false;
   cur->child_status = false;
