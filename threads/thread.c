@@ -645,13 +645,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->child_cor = 0;
   list_init(&t->locks);
   list_init(&t->donations);
-
+  list_init (&t->files);
   lock_init(&t->process_lock);
   cond_init(&t->msg_parent);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   
   intr_set_level (old_level);
+  
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
