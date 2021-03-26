@@ -4,7 +4,8 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-
+#include "threads/vaddr.h"
+#include "userprog/syscall.h"
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -139,10 +140,14 @@ page_fault (struct intr_frame *f)
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
   intr_enable ();
-
   /* Count page faults. */
   page_fault_cnt++;
+   if (fault_addr == NULL){
+      exit(-1);
+   }
 
+   if(!is_user_vaddr(fault_addr))
+      exit(-1);
   /* Determine cause. */
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;

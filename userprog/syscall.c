@@ -22,23 +22,9 @@
 
 static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
-int write_to_console(void* buffer, unsigned size);
 
 struct open_file * get_file(int fd);
 
-static void halt(void);
-static void exit(int status);
-static pid_t exec(const char* cmd_line);
-static int wait(pid_t pid);
-static bool create(const char* file, unsigned initial_size);
-static bool remove(const char* file);
-static int open(const char* file);
-static int filesize(int fd);
-static int read(int fd, char* buffer, unsigned size);
-static int write (int fd, void* buffer, unsigned size);
-static void seek(int fd, unsigned position);
-static unsigned tell (int fd);
-static void close(int fd);
 
 void delete_parent_from_child(struct hash_elem *elem, void *aux);
 void print_children(struct hash_elem *elem, void *aux);
@@ -46,7 +32,7 @@ static struct lock file_system_lock;
 static struct list all_files;
 
 void 
-print_children(struct hash_elem *elem, void *aux)
+print_children(struct hash_elem *elem, void *aux UNUSED)
 {
   struct children_process *child = hash_entry(elem, struct children_process, elem);
   if (!child) printf("NULL");
@@ -77,7 +63,7 @@ syscall_init (void)
   ** SEE SYS_EXIT for an example.** 
 
 */
-static void
+  void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
   // Revisar que el puntero sea el correcto.
@@ -87,9 +73,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   char* file_name;
   
   int fd;
-  char* buffer;
   unsigned position;
   unsigned size;
+  void* buffer;
 
   if (!verify_pointer(f->esp))
   {
@@ -127,19 +113,27 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     // *************************************************************************************************************************************************
     case SYS_WAIT:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+      
       tid = *((int*)f->esp + 1); 
       f->eax = process_wait(tid);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_READ:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+
+      if (!verify_pointer((int*)f->esp + 3))
+        exit(-1);
+
       fd = (*((int*)f->esp + 1)); 
       buffer = (char*)(*((int*)f->esp + 2));
       size = (*((int*)f->esp + 3));
 
-      if (!verify_pointer(buffer)){
+      if (!verify_pointer(buffer))
         exit(-1);
-      }
       // A0 = Bytes actualy read.
       f->eax = read(fd, buffer, size);
       break;
@@ -158,14 +152,17 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_OPEN:
       file_name = (void*)(*((int*)f->esp + 1)); 
 
-      if (!verify_pointer(file_name)){
+      if (!verify_pointer(file_name))
         exit(-1);
-      }
+      
       f->eax = open(file_name);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_FILESIZE:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+
       fd = (*((int*)f->esp + 1)); 
 
       f->eax = filesize(fd);
@@ -173,26 +170,47 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     // *************************************************************************************************************************************************
     case SYS_CREATE: 
-      fd = (*((int*)f->esp + 1)); 
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+      
+      if (!verify_pointer((int*)f->esp + 2))
+        exit(-1);
+      
+      file_name = (char*)(*((int*)f->esp + 1)); 
+      if (!verify_pointer(file_name))
+        exit(-1);
       size = (*((int*)f->esp + 2));
 
-      f->eax = create(fd, size);
+      f->eax = create(file_name, size);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_WRITE:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+
+      if (!verify_pointer((int*)f->esp + 3))
+        exit(-1);
+      
+      
       fd = *((int*)f->esp + 1);
       buffer = (void*)(*((int*)f->esp + 2));
       size = *((int*)f->esp + 3);
 
-      if (!verify_pointer(buffer)){
+      if (!verify_pointer(buffer))
         exit(-1);
-      }
       f->eax = write(fd, buffer, size);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_SEEK:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+      
+      if (!verify_pointer((int*)f->esp + 2))
+        exit(-1);
+            
+
       fd = *((int*)f->esp + 1);
       position = *((int*)f->esp + 2);
 
@@ -201,6 +219,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     // *************************************************************************************************************************************************
     case SYS_TELL:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+
       fd = *((int*)f->esp + 1);
 
       f->eax = tell(fd);
@@ -208,11 +229,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     // *************************************************************************************************************************************************
     case SYS_CLOSE:
-      fd = *((int*)f->esp + 1); 
-
-      if (!verify_pointer(fd)){
+      if (!verify_pointer((int*)f->esp + 1))
         exit(-1);
-      }
+      
+      fd = *((int*)f->esp + 1); 
       close(fd);
       break;
   }
@@ -225,7 +245,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     2. The pointer is allocated in thread page.
 
 */
-static bool 
+  bool 
 verify_pointer(void *pointer)
 {
   struct thread *cur = thread_current(); 
@@ -241,7 +261,7 @@ verify_pointer(void *pointer)
 }
 
 
-static void 
+  void 
 exit(int status)
 {
   struct thread *cur = thread_current();
@@ -275,7 +295,7 @@ exit(int status)
   thread_exit();
 }
 
-static pid_t 
+  pid_t 
 exec(const char* cmd_line)
 {
   tid_t child;
@@ -310,22 +330,20 @@ exec(const char* cmd_line)
   return child;
 }
 
-static int 
-wait(pid_t pid)
-{
-  return process_wait(pid);
-}
 
-static bool 
+  bool 
 create(const char* file, unsigned initial_size)
 {
   lock_acquire(&file_system_lock);
-  if(filesys_create(file, initial_size)) return true;
+  if(filesys_create(file, initial_size)){ 
+    lock_release(&file_system_lock);
+    return true;
+  }
   lock_release(&file_system_lock);
   return false;
 }
 
-static bool 
+  bool 
 remove(const char* file)
 {
   lock_acquire(&file_system_lock);
@@ -334,7 +352,7 @@ remove(const char* file)
   return false;
 }
 
-static int 
+  int 
 open(const char* file)
 {
    struct thread *cur = thread_current();
@@ -344,7 +362,7 @@ open(const char* file)
   if(file_op != NULL){
    struct open_file *op_file = malloc(sizeof(struct open_file));
    op_file->fd = cur->fd_next++;
-   op_file->tfiles = op_file;
+   op_file->tfiles = file_op;
    list_push_back(&cur->files, &op_file->at);
    list_push_back(&all_files, &op_file->af);
    return op_file->fd;
@@ -352,7 +370,7 @@ open(const char* file)
   return -1;
 }
 
-static int 
+  int 
 filesize(int fd)
 {
   int size = 0;
@@ -368,17 +386,20 @@ filesize(int fd)
 }
 
 struct open_file * get_file(int fd){
-  struct list * opfiles = &thread_current()->files;
-     struct list_elem *files= list_begin(opfiles);    
-     while (files != list_end(opfiles))
+    struct list * opfiles = &thread_current()->files;
+    struct list_elem *files= list_begin(opfiles);    
+    while (files != list_end(opfiles))
     {   
-    struct open_file *open_file  = list_entry(files, struct open_file, af);
-        files = list_next(files);
+      struct open_file *opfile  = list_entry(files, struct open_file, at);
+      if (opfile->fd == fd)
+        return opfile;
+      files = list_next(files);
     }
+    return NULL;
 }
 
 
-static int 
+  int 
 read(int fd, char* buffer, unsigned size)
 {
   int read_size = -1;
@@ -404,28 +425,28 @@ read(int fd, char* buffer, unsigned size)
   return read_size;
 }
 
-static int 
+  int 
 write (int fd, void* buffer, unsigned size)
 {
-  switch (fd)
-  {
-    case STDIN_FILENO:
+  if (fd == STDIN_FILENO){
+    return 0;
+  }
+  else if (fd == STDOUT_FILENO){
+    putbuf((char*) buffer, size);
+    return size;
+  }else{
+    struct open_file *opfile = get_file(fd);
+    int written_bytes = 0;
+    if (opfile == NULL)
       return 0;
-    case STDOUT_FILENO:
-      putbuf((char*) buffer, size);
-      break;
-    default:
-      break;
+    lock_acquire(&file_system_lock);
+    written_bytes = file_write(opfile->tfiles, buffer, size);
+    lock_release(&file_system_lock);
+    return written_bytes;
   }
 }
 
-int 
-write_to_console(void *buffer, unsigned size)
-{
-  
-}
-
-static void 
+  void 
 seek(int fd, unsigned position)
 {
   int size = filesize(fd);
@@ -443,7 +464,7 @@ seek(int fd, unsigned position)
   }
 }
 
-static unsigned 
+  unsigned 
 tell(int fd)
 {
   // Returns the next byte to be read, in bytes.
@@ -457,13 +478,13 @@ tell(int fd)
   return ret;
 }
 
-static void 
+  void 
 close(int fd)
 {
   struct open_file *openfile = get_file(fd);
   if(openfile != NULL){
     lock_acquire(&file_system_lock);
-    file_close(&openfile->tfiles);
+    file_close(openfile->tfiles);
     lock_release(&file_system_lock);
     list_remove(&openfile->at);
     list_remove(&openfile->af);
