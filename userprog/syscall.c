@@ -3,6 +3,7 @@
 #include "userprog/syscall.h"
 
 #include "lib/kernel/stdio.h"
+#include "lib/string.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 
@@ -23,13 +24,11 @@
 static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
 
-struct open_file * get_file(int fd);
-
 
 void delete_parent_from_child(struct hash_elem *elem, void *aux);
 void print_children(struct hash_elem *elem, void *aux);
 static struct lock file_system_lock;
-static struct list all_files;
+
 
 void 
 print_children(struct hash_elem *elem, void *aux UNUSED)
@@ -45,7 +44,7 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&file_system_lock);
-  list_init(&all_files);
+  
 }
 
 
@@ -356,14 +355,32 @@ remove(const char* file)
 int 
 open(const char* file)
 {
-   struct thread *cur = thread_current();
-   lock_acquire(&file_system_lock);
-   struct  file *file_op = filesys_open(file);
-   lock_release(&file_system_lock);
+  struct thread *cur = thread_current();
+  struct file *last_file = NULL;
+  struct file *file_op = NULL;
+  struct list_elem *iter = list_begin(&all_files);
+  while (iter != list_end(&all_files))
+  {
+    struct open_file *op_file = list_entry(iter, struct open_file, af);
+    if (strcmp(file, op_file->name) == 0){
+      last_file = op_file->tfiles;
+      break;
+    }
+    iter = list_next(iter);
+  }
+  
+  lock_acquire(&file_system_lock);
+  if (last_file != NULL)
+    file_op = file_reopen(last_file);
+  else 
+    file_op = filesys_open(file);
+  lock_release(&file_system_lock);
+  
   if(file_op != NULL){
    struct open_file *op_file = malloc(sizeof(struct open_file));
    op_file->fd = cur->fd_next++;
    op_file->tfiles = file_op;
+   op_file->name = (char*)file;
    list_push_back(&cur->files, &op_file->at);
    list_push_back(&all_files, &op_file->af);
    return op_file->fd;

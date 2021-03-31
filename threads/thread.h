@@ -129,7 +129,7 @@ struct thread
     /* Used in syscall open. */
      int fd_next;                             /* ID of fiel descriptor*/
      struct list files;
-
+     int fd_exec;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
@@ -137,11 +137,13 @@ struct thread
 
   struct open_file{
     int fd;
+    char* name;
     struct file *tfiles;
     struct list_elem af;
     struct list_elem at;
   };
-  
+  struct list all_files;
+
 
 
 /* If false (default), use round-robin scheduler.

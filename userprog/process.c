@@ -1,4 +1,5 @@
 #include "userprog/process.h"
+#include "syscall.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -220,6 +221,8 @@ process_exit (void)
     lock_release(lock);
   }
 
+  close(cur->fd_exec);
+
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -349,7 +352,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", t->name);
       goto done; 
     }
+  /* create open file struct and push it to thread files and all files list*/
+  struct open_file *op_file = malloc(sizeof(struct open_file));
   file_deny_write(file);
+  op_file->fd = t->fd_next++;
+  op_file->tfiles = file;
+  op_file->name = t->name;
+  list_push_back(&t->files, &op_file->at);
+  list_push_back(&all_files, &op_file->af);
+  t->fd_exec = op_file->fd;
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -433,7 +444,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  
+  /*
+    if load was not sucessful then close the file.
+    else it stays open until process exits.
+  */
+  if (!success)
+    file_close (file);
   return success;
 }
 
