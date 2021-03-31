@@ -222,6 +222,13 @@ process_exit (void)
   }
 
   close(cur->fd_exec);
+  struct list_elem *iter = list_begin(&cur->files); 
+  while (iter != list_end (&cur->files))
+  {   
+    struct open_file *op_file = list_entry(iter, struct open_file, at);
+    close(op_file->fd);
+    iter = list_next(iter);
+  }
 
   pd = cur->pagedir;
   if (pd != NULL) 
