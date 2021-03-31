@@ -2,6 +2,10 @@
     "files.associations": {
         "*.rmd": "markdown",
         "syscall.h": "c",
-        "*.inc": "c"
+        "*.inc": "c",
+        "debug.h": "c",
+        "string.h": "c",
+        "features.h": "c",
+        "stddef.h": "c"
     }
 }

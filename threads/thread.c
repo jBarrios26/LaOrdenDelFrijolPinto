@@ -649,6 +649,8 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->files);
   lock_init(&t->process_lock);
   cond_init(&t->msg_parent);
+  lock_init(&t->wait_lock);
+  cond_init(&t->wait_cond);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   

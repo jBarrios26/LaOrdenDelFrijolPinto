@@ -58,18 +58,17 @@ process_execute (const char *file_name)
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  args = palloc_get_page (0);
+  args = palloc_get_page (PAL_USER | PAL_ZERO);
   if (fn_copy == NULL || args == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
   /* Get filename */ 
   name = strtok_r (fn_copy, " ", &save_ptr);
-  strlcpy(args, save_ptr, PGSIZE);
+  strlcpy(args, save_ptr, strlen(file_name) - strlen(name));
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process,args);
 
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+
   
   if (!thread_current()->children_init)
   {
@@ -82,6 +81,7 @@ process_execute (const char *file_name)
       hash_insert(&cur->children, &child_p->elem);
     thread_current()->children_init = true;
   }
+  palloc_free_page (fn_copy); 
   return tid;
 }
 
@@ -102,7 +102,6 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
 
   /* Need to check if load was successful and signal the parent thread.
      Need to use the synchronization variables defined on the parent thread.
@@ -114,7 +113,7 @@ start_process (void *file_name_)
   child.pid = cur->tid;
   struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
 
-  if (parent){
+  if (parent != NULL  ){
   /* Acquire lock from parent to modify state variables and signal him.*/
     if (!success) 
     {
@@ -122,17 +121,18 @@ start_process (void *file_name_)
       parent->child_load = true;
       cond_signal(&parent->msg_parent, &parent->process_lock);
       lock_release(&parent->process_lock);
-      thread_exit ();
     }else
     {
       lock_acquire(&parent->process_lock);
       parent->child_status = true;
       parent->child_load = true;
-      //printf("\n\n%s Le avisa al parent %d exito", cur->name, parent->tid);
       cond_signal(&parent->msg_parent, &parent->process_lock);
       lock_release(&parent->process_lock);
     }
   }
+
+  if(!success)
+    thread_exit();
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -158,7 +158,7 @@ process_wait (tid_t child_tid)
 {
   struct thread *cur;
   cur = thread_current();
-  
+
   // get the child process from parent children hash table.
   struct children_process child;
   child.pid = child_tid;
@@ -188,15 +188,14 @@ process_wait (tid_t child_tid)
     return child_control->status;
   }
   child_control->parent_waited = true;
-  lock_acquire(&cur->process_lock);
+  lock_acquire(&cur->wait_lock);
     cur->child_waiting = child_tid;
     while (!child_control->finish)
     {
-      cond_wait(&cur->msg_parent, &cur->process_lock);
+      cond_wait(&cur->wait_cond, &cur->wait_lock);
     }
-    // printf("VA a despertarr, %d", cur->tid);
     cur->waiting = 0; 
-  lock_release(&cur->process_lock);
+  lock_release(&cur->wait_lock);
   return child_control->status;
 }
 
@@ -553,90 +552,89 @@ static bool
 setup_stack (void **esp, char *args, char *name) 
 {
   uint8_t *kpage;
-  char *token, *save_ptr;
-  int start_stack = 0;
+  char *token, *save_ptr, *save_ptr2;
   bool success = false;
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        palloc_free_page (kpage);
-    }
-  
-  /* SETUP args in stack*/
-  int argc = 0;
-  char *reverse_args, *aux = "";
-  reverse_args = palloc_get_page(0);
-  aux = palloc_get_page(0);
-  if (reverse_args == NULL || aux == NULL){
-    success = false;
-    palloc_free_page(reverse_args);
-    palloc_free_page(aux);
-    return success;
-  }
-  for (token = strtok_r (args, " ", &save_ptr); token != NULL;
-        token = strtok_r (NULL, " ", &save_ptr))
+  {
+    success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+    if (success){
+    
+      *esp = PHYS_BASE;
+      /* SETUP args in stack*/
+      int argc = 0;
+      char *reverse_args, *aux = "";
+      reverse_args = palloc_get_page(PAL_USER | PAL_ZERO);
+      aux = palloc_get_page(PAL_USER |PAL_ZERO);
+      
+      if (reverse_args == NULL || aux == NULL){
+        success = false;
+        palloc_free_page(reverse_args);
+        palloc_free_page(aux);
+        return success;
+      }
+      for (token = strtok_r (args, " ", &save_ptr); token != NULL;
+            token = strtok_r (NULL, " ", &save_ptr))
+            {
+              strlcpy(aux, token, PGSIZE);
+              strlcat(aux, " ", PGSIZE);
+              strlcat(aux, reverse_args, PGSIZE);
+              strlcpy(reverse_args, aux, PGSIZE);
+              ++argc;
+            }
+      void *addresses[argc+1];
+      char *save;
+      argc = 0;
+      // PUSH strings of args to the stack. 
+      if (strlen(reverse_args) > 0){
+        for (token = strtok_r (reverse_args, " ", &save_ptr2); token != NULL;
+              token = strtok_r (NULL, " ", &save_ptr2))
         {
-          strlcpy(aux, token, PGSIZE);
-          strlcat(aux, " ", PGSIZE);
-          strlcat(aux, reverse_args, PGSIZE);
-          strlcpy(reverse_args, aux, PGSIZE);
-          ++argc;
+          *esp-= strlen(token)+1;
+          memcpy(*esp, token, strlen(token)+1);
+          addresses[argc++] = *esp;
         }
-  void *addresses[argc+1];
-  char *save;
-  argc = 0;
-  // PUSH strings of args to the stack. 
-  for (token = strtok_r (reverse_args, " ", &save_ptr); token != NULL;
-        token = strtok_r (NULL, " ", &save_ptr))
-  {
-    *esp-= strlen(token)+1;
-    start_stack += strlen(token)+1; 
-    memcpy(*esp, token, strlen(token)+1);
-    addresses[argc++] = *esp;
+      }
+      // Push the name to the stack
+      *esp-= strlen(name)+1;
+      memcpy(*esp, name, strlen(name)+1);
+      addresses[argc++] = *esp; 
+
+      // Align memory.
+      int mem_align =  (-1 * (int)*esp) % 4;
+      *esp -= mem_align; 
+      memset(*esp, 0, mem_align);
+
+      // Write argv addresses.
+      *esp -= 4; 
+      memset (*esp, 0, 4); 
+
+      int i = 0; 
+      while (i < argc)
+      {
+        *esp -= sizeof(char *);
+        memcpy(*esp,  &addresses[i++], sizeof(char*));
+      }
+
+      // push argv[0] address
+      void *argv0 = *esp;
+      *esp -= sizeof(char**);
+      memcpy(*esp, &argv0, sizeof(char**));
+
+      *esp-=sizeof(argc);
+      memcpy(*esp, &argc, 4);
+
+      *esp -= sizeof(void*);
+      memset(*esp, 0, sizeof(void*));
+
+      palloc_free_page(aux);
+      palloc_free_page(reverse_args);
+    }
+    else
+      palloc_free_page (kpage);
   }
-
-  // Push the name to the stack
-  *esp-= strlen(name)+1;
-  start_stack += strlen(name)+1; 
-  memcpy(*esp, name, strlen(name)+1);
-  addresses[argc++] = *esp; 
-
-  // Align memory.
-  int mem_align =  (-1 * (int)*esp) % 4;
-  *esp -= mem_align;
-  start_stack += mem_align;  
-  memset(*esp, 0, mem_align);
-
-  // Write argv addresses.
-  *esp -= 4; 
-  start_stack += 4; 
-  memset (*esp, 0, 4); 
-
-  int i = 0; 
-  while (i < argc)
-  {
-    *esp -= sizeof(char *);
-    start_stack += sizeof(char*); 
-    memcpy(*esp,  &addresses[i++], sizeof(char*));
-  }
-
-  // push argv[0] address
-  void *argv0 = *esp;
-  *esp -= sizeof(char**);
-  start_stack += sizeof(char**); 
-  memcpy(*esp, &argv0, sizeof(char**));
-
-  *esp-=sizeof(argc);
-  start_stack += sizeof(argc); 
-  memcpy(*esp, &argc, 4);
-
-  *esp -= sizeof(void*);
-  start_stack += sizeof(void*); 
-  memset(*esp, 0, sizeof(void*));
+  
+  
 
   //hex_dump(PHYS_BASE - (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), *esp, (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), true);
   return success;

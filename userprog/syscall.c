@@ -281,9 +281,9 @@ exit(int status)
       child_control->finish = true; 
       child_control->status = status;
       //printf("SE va a despertar al padre");
-      lock_acquire(&parent->process_lock);
-      cond_signal(&parent->msg_parent, &parent->process_lock);
-      lock_release(&parent->process_lock);
+      lock_acquire(&parent->wait_lock);
+      cond_signal(&parent->wait_cond, &parent->wait_lock);
+      lock_release(&parent->wait_lock);
     }
   }
   
@@ -300,6 +300,8 @@ exec(const char* cmd_line)
 {
   tid_t child;
   struct thread *cur = thread_current();
+  cur->child_load = false;
+  cur->child_status = false;
   // Create the process, start to load the new process and returns the TID (PID)
   child = process_execute(cmd_line);
   if (child == -1) 
@@ -316,43 +318,42 @@ exec(const char* cmd_line)
   // Use a monitor that  allows the child to message his parent.
   lock_acquire(&cur->process_lock);
   // If child hasn't load then wait. To avoid race conditions.
-  //printf("\n\n%s, Ya mando a ejecutar a child %d", cur->name, child);
   if(!cur->child_load)
     cond_wait(&cur->msg_parent, &cur->process_lock);
+
+  //printf("%s %d cur  %d %d", cur->name ,cur->tid,cur->child_load, cur->child_status);
   //printf("\n\n%s, Child le aviso que fue exitoso %d", cur->name, child);
   // Check the exec_status of child.
   if (!cur->child_status)
     child = -1;
-  
-  cur->child_load = false;
-  cur->child_status = false;
+
   lock_release(&cur->process_lock);
+
   return child;
 }
 
 
-  bool 
+bool 
 create(const char* file, unsigned initial_size)
 {
+  bool status = false;
   lock_acquire(&file_system_lock);
-  if(filesys_create(file, initial_size)){ 
-    lock_release(&file_system_lock);
-    return true;
-  }
+  if(filesys_create(file, initial_size)) status = true;
   lock_release(&file_system_lock);
-  return false;
+  return status;;
 }
 
-  bool 
+bool 
 remove(const char* file)
 {
+  bool status = false;
   lock_acquire(&file_system_lock);
-  if(filesys_remove(file)) return true;
+  if(filesys_remove(file)) status = true;
   lock_release(&file_system_lock);
-  return false;
+  return status;
 }
 
-  int 
+int 
 open(const char* file)
 {
    struct thread *cur = thread_current();
@@ -408,8 +409,8 @@ read(int fd, char* buffer, unsigned size)
   if (fd){    
     struct open_file *opened_file = get_file(fd);
     if (opened_file != NULL){
-      struct file * temp_file = opened_file->tfiles;
       lock_acquire(&file_system_lock);
+      struct file * temp_file = opened_file->tfiles;
       read_size = file_read(temp_file, buffer, size);
       lock_release(&file_system_lock);
     }

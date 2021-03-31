@@ -118,6 +118,9 @@ struct thread
     struct condition msg_parent;
     struct lock process_lock;
 
+    struct lock wait_lock;
+    struct condition wait_cond; 
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
