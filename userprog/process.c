@@ -221,13 +221,14 @@ process_exit (void)
     lock_release(lock);
   }
 
-  close(cur->fd_exec);
+  if (cur->fd_exec != -1)
+    close(cur->fd_exec);
+
   struct list_elem *iter = list_begin(&cur->files); 
-  while (iter != list_end (&cur->files))
+  while (!list_empty(&cur->files))
   {   
-    struct open_file *op_file = list_entry(iter, struct open_file, at);
+    struct open_file *op_file = list_entry(list_pop_back(&cur->files), struct open_file, at);
     close(op_file->fd);
-    iter = list_next(iter);
   }
 
   pd = cur->pagedir;
@@ -354,6 +355,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (t->name);
+
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", t->name);
@@ -456,8 +458,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
     if load was not sucessful then close the file.
     else it stays open until process exits.
   */
-  if (!success)
+  if (!success && file != NULL){
     file_close (file);
+    list_remove(&op_file->af);
+    list_remove(&op_file->at);
+    free(op_file);
+  }
+
   return success;
 }
 

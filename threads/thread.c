@@ -645,6 +645,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->children_init=false;
   t->child_cor = 0;
   t->fd_next = 2;
+  t->fd_exec = -1;
   list_init(&t->locks);
   list_init(&t->donations);
   list_init (&t->files);
