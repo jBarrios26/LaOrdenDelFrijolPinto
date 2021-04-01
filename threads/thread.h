@@ -15,7 +15,7 @@ enum thread_status
   };
 
 /* Thread identifier type.
-   You can redefine this to whatever type you like. */
+   You can redefine this to whatever type you like. */ 
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
@@ -88,7 +88,8 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int nice;
+    int nice;                           /* Nice*/
+    int recent_cpu;                     /* Recent CPU*/
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -153,6 +154,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* Para advance priority */ 
+void recalculate_priority(struct thread *, void *aux);
+void calculate_load_avg(void);
+void calculate_recent_cpu(struct thread *, void *aux);
 
 void thread_list_print(struct list *thread_list); 
 bool value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);
