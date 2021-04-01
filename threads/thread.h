@@ -114,9 +114,10 @@ struct thread
     bool child_status;
     bool children_init;
     struct hash children;
- 
-    struct condition msg_parent;
-    struct lock process_lock;
+    struct semaphore exec_sema; 
+   //  struct semaphore wait_sema;
+   //  struct condition msg_parent;
+   //  struct lock process_lock;
 
     struct lock wait_lock;
     struct condition wait_cond; 

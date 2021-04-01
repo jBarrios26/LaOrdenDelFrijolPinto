@@ -23,7 +23,7 @@
 
 static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
-
+void delete_children(struct hash_elem *elem, void *aux);
 
 void delete_parent_from_child(struct hash_elem *elem, void *aux);
 void print_children(struct hash_elem *elem, void *aux);
@@ -277,10 +277,11 @@ exit(int status)
     struct children_process *child_control = hash_entry(hash_find(&parent->children, &child.elem), struct children_process, elem);
     //printf("Se va a despertar el padre");
     if (child_control){
+      //printf("SE va a despertar al padre");
+      //sema_up(&parent->wait_sema);
+      lock_acquire(&parent->wait_lock);
       child_control->finish = true; 
       child_control->status = status;
-      //printf("SE va a despertar al padre");
-      lock_acquire(&parent->wait_lock);
       cond_signal(&parent->wait_cond, &parent->wait_lock);
       lock_release(&parent->wait_lock);
     }
@@ -289,7 +290,30 @@ exit(int status)
   //TODO: Comunicate children processes that parent is exiting.
   hash_apply(&cur->children, delete_parent_from_child);
   //TODO: Free resources of the thread.
+    hash_destroy(&cur->children, delete_children);
 
+  struct lock *lock;
+  while (!list_empty(&cur->locks))
+  {
+    lock = list_entry(list_pop_back(&cur->locks), struct lock, elem);
+    lock_release(lock);
+  }
+
+  if (cur->fd_exec != -1)
+    close(cur->fd_exec);
+
+  struct list_elem *iter = list_begin(&cur->files); 
+  while (!list_empty(&cur->files))
+  {   
+    struct open_file *op_file = list_entry(iter, struct open_file, at);
+    iter = list_next(iter);
+    //printf("antes Todos files %d\n", list_size(&all_files));
+    close(op_file->fd);
+    //printf("despuest Todos files %d\n", list_size(&all_files));
+  }
+  // printf("Todos files %d\n", list_size(&all_files));
+
+  
   
   thread_exit();
 }
@@ -299,6 +323,7 @@ exec(const char* cmd_line)
 {
   tid_t child;
   struct thread *cur = thread_current();
+  struct children_process *child_p = NULL;
   cur->child_load = false;
   cur->child_status = false;
   // Create the process, start to load the new process and returns the TID (PID)
@@ -306,8 +331,7 @@ exec(const char* cmd_line)
   if (child == -1) 
     return TID_ERROR;
   else{
-    struct children_process *child_p = malloc(sizeof(struct children_process));
-    //printf("\n%s crea %lu\n\n", cur->name, timer_ticks());
+    child_p = malloc(sizeof(struct children_process));
     child_p->pid = child;
     child_p->status = -1;
     child_p->finish = false; 
@@ -315,18 +339,21 @@ exec(const char* cmd_line)
     hash_insert(&cur->children, &child_p->elem);
   }
   // Use a monitor that  allows the child to message his parent.
-  lock_acquire(&cur->process_lock);
+  //lock_acquire(&cur->process_lock);
   // If child hasn't load then wait. To avoid race conditions.
   if(!cur->child_load)
-    cond_wait(&cur->msg_parent, &cur->process_lock);
+    sema_down(&cur->exec_sema);
+    //cond_wait(&cur->msg_parent, &cur->process_lock);
 
-  //printf("%s %d cur  %d %d", cur->name ,cur->tid,cur->child_load, cur->child_status);
-  //printf("\n\n%s, Child le aviso que fue exitoso %d", cur->name, child);
+
   // Check the exec_status of child.
-  if (!cur->child_status)
+  if (!cur->child_status){
+    hash_delete(&cur->children,&child_p->elem);
+    free(child_p);
     child = -1;
+  }
 
-  lock_release(&cur->process_lock);
+  //lock_release(&cur->process_lock);
 
   return child;
 }
@@ -523,3 +550,9 @@ delete_parent_from_child(struct hash_elem *elem, void *aux UNUSED)
 
 }
 
+void 
+delete_children(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct children_process *child = hash_entry(elem, struct children_process, elem);
+  free(child);
+}
