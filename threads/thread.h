@@ -3,8 +3,6 @@
 
 #include <debug.h>
 #include <list.h>
-#include <hash.h>
-#include "threads/synch.h"
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -27,11 +25,13 @@ typedef int tid_t;
 #define PRI_MAX 63                      /* Highest priority. */
 
 /* A kernel thread or user process.
+
    Each thread structure is stored in its own 4 kB page.  The
    thread structure itself sits at the very bottom of the page
    (at offset 0).  The rest of the page is reserved for the
    thread's kernel stack, which grows downward from the top of
    the page (at offset 4 kB).  Here's an illustration:
+
         4 kB +---------------------------------+
              |          kernel stack           |
              |                |                |
@@ -53,18 +53,22 @@ typedef int tid_t;
              |               name              |
              |              status             |
         0 kB +---------------------------------+
+
    The upshot of this is twofold:
+
       1. First, `struct thread' must not be allowed to grow too
          big.  If it does, then there will not be enough room for
          the kernel stack.  Our base `struct thread' is only a
          few bytes in size.  It probably should stay well under 1
          kB.
+
       2. Second, kernel stacks must not be allowed to grow too
          large.  If a stack overflows, it will corrupt the thread
          state.  Thus, kernel functions should not allocate large
          structures or arrays as non-static local variables.  Use
          dynamic allocation with malloc() or palloc_get_page()
          instead.
+
    The first symptom of either of these problems will probably be
    an assertion failure in thread_current(), which checks that
    the `magic' member of the running thread's `struct thread' is
@@ -84,10 +88,8 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int nice;                           /* Nice*/
-    int recent_cpu;                     /* Recent CPU*/
+    int nice;
     struct list_elem allelem;           /* List element for all threads list. */
-  
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -96,44 +98,23 @@ struct thread
     /* Synchonization variables */
                /* All the donations that the thread has received. Sorted by priority from lowest to highest */
     struct lock *waiting; 
-    struct thread *lock_holder;
     struct list locks; 
     struct list donations; 
-    int original_priority;
 
-    /* Process variables */
-    tid_t parent;
-    tid_t child_waiting;
-    bool child_load;
-    bool child_status;
-    bool children_init;
-    struct hash children;
- 
-    struct condition msg_parent;
-    struct lock process_lock;
+
+    /* Synchonization variables */
+    int donated_priority;              /* The highest priority donated. (starts at 0) */
+    int original_priority;
+    struct thread *lock_holder;        /* Thread that is holding the needed lock */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-    /* Used in syscall open. */
-     int fd_next;                             /* ID of fiel descriptor*/
-     struct list files;
-
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-
   };
-
-  struct open_file{
-    int fd;
-    struct file *tfiles;
-    struct list_elem af;
-    struct list_elem at;
-  };
-  
-
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -167,17 +148,11 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
-struct thread *get_thread(tid_t tid);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
-/* Para advance priority */ 
-void recalculate_priority(struct thread *, void *aux);
-void calculate_load_avg(void);
-void calculate_recent_cpu(struct thread *, void *aux);
 
 void thread_list_print(struct list *thread_list); 
 bool value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED);

@@ -120,8 +120,7 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   
-  struct thread *next_thread = NULL;
-  struct thread *cur = thread_current();
+  struct thread *next_thread;
   if (!list_empty (&sema->waiters)) 
   {
     list_sort (&sema->waiters, priority_value_less, NULL);
@@ -130,10 +129,8 @@ sema_up (struct semaphore *sema)
     thread_unblock (next_thread);
   }
   sema->value++;
-  
-  if (next_thread != NULL && !intr_context() && cur->priority < next_thread->priority){
+  if (thread_current()->priority < next_thread->priority)
     thread_yield();
-  }
   
   intr_set_level (old_level);
 }
@@ -214,6 +211,18 @@ struct list_elem *find_lock (struct list *donations, struct lock *lock)
 }
 
 
+int print_donos(struct list *donations)
+{
+  struct list_elem *iter = list_begin(donations);
+  while (iter != list_end (donations))
+  {
+    struct donation *d = list_entry(iter, struct donation, elem);
+    printf ("%d\n", d->priority);
+    iter = list_next(iter);
+  }
+  return -1;
+  
+}
 
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
@@ -240,7 +249,7 @@ lock_acquire (struct lock *lock)
   struct thread *cur = thread_current ();
   struct thread *holder = lock->holder;
   struct lock *lock_holder = lock;
-   
+  
   while(holder != NULL && cont < 8){
     if (holder->priority < cur->priority)
     {
@@ -282,7 +291,6 @@ lock_acquire (struct lock *lock)
   } */
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
-  list_push_back(&cur->locks, &lock->elem);
   cur->waiting = NULL;
   intr_set_level (old_level);
 }
@@ -352,7 +360,7 @@ lock_release (struct lock *lock)
     cur->priority = lock2->holder->priority;
   } */
 
-  list_remove(&lock->elem);
+
 
   sema_up (&lock->semaphore);
   intr_set_level (old_level);
