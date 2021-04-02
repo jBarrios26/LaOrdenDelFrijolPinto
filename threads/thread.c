@@ -218,12 +218,13 @@ thread_create (const char *name, int priority,
     thread_yield();
   }
 
-
-
   // If it's MLFQS
   if (thread_mlfqs){
+    //
     calculate_recent_cpu(t, NULL);
+    calculate_recent_cpu (thread_current (), NULL);
     recalculate_priority(t, NULL);
+    recalculate_priority(thread_current(),NULL);
   }
     
   return tid;
@@ -510,6 +511,19 @@ recalculate_priority(struct thread *current_thread, void *aux UNUSED )
     }
 }
 
+/* Calculates the new priority for all the threads. This one is used in the timer.c because it needs to be
+   recalculated every 4 ticks*/
+void
+all_threads_priority(void)
+{
+  thread_foreach (recalculate_priority, NULL);
+  /* resort ready_list */
+  if (!list_empty (&ready_list))
+    {
+      list_sort (&ready_list, priority_value_less, NULL);
+    }
+}
+
 
 /* Calculates the recent_cpu based on recent_cpu = (2*load_avg)/(2*load_avg + 1) * recent_cpu + nice */
 
@@ -519,9 +533,19 @@ calculate_recent_cpu (struct thread *cur, void *aux UNUSED)
   ASSERT (is_thread (cur));
   if (cur != idle_thread)
     {
-      int coefficient = DIV(MULTI_FP_INT(load_avg,2), MULTI_FP_INT(load_avg,2) +1);
+      int a = MULTI_FP_INT(load_avg,2);
+      int coefficient = DIV(a, ADD_FP_INT(a, 1));
       cur->recent_cpu = ADD_FP_INT(MULTI(coefficient,cur->recent_cpu), cur->nice);
     }
+}
+
+/* Calculates de recent_cpu for all the threads. This is because it has to be calculated 
+   exactly when timer_ticks () % TIMER_FREQ == 0 */
+
+void
+all_threads_recent_cpu (void)
+{
+  thread_foreach (calculate_recent_cpu, NULL);
 }
 
 /* Calculates the load_avg based on load_avg = (59/60)*load_avg + (1/60)*ready_threads*/
@@ -539,22 +563,23 @@ calculate_load_avg(void){
   else ready_threads = list_ready_threads;
 
   //load_avg = (59/60)*load_avg + (1/60)*ready_threads
-  load_avg = MULTI(DIV_FP_INT(CONVERT_TO_FIXED_POINT(59),60),load_avg) + MULTI_FP_INT(DIV_FP_INT(CONVERT_TO_FIXED_POINT(1),60),ready_threads);
+  int a = MULTI(DIV_FP_INT(CONVERT_TO_FIXED_POINT(59),60),load_avg);
+  int b = MULTI_FP_INT(DIV_FP_INT(CONVERT_TO_FIXED_POINT(1),60),ready_threads);
+  load_avg = a + b; 
 }
 
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED) 
 {
-  ASSERT (nice >= -20);
-  ASSERT (nice < 20);
+  ASSERT (nice >= NICE_MIN && nice <= NICE_MAX);
 
   struct thread *curr;
 
   curr = thread_current ();
   curr->nice = nice;
   //vuelve a calcular la prioridad, pero basandose en MLFQS
-  recalculate_priority(curr, NULL);
+  recalculate_priority(thread_current(),NULL);
 
   //Si está en READY, vuelve a la cola de READY, 
   //Si está en RUNNING? entonces mira quien tiena la prioridad más alta en la lista
@@ -568,7 +593,9 @@ thread_set_nice (int nice UNUSED)
       list_insert_ordered (&ready_list, &curr->elem, priority_value_less, NULL);
       intr_set_level (old_level);
     } else if (curr->status == THREAD_RUNNING){
-      if (list_entry (list_begin (&ready_list), struct thread, elem)->priority > curr->priority) thread_yield();
+      if (list_entry (list_begin (&ready_list), struct thread, elem)->priority > curr->priority) {
+        thread_yield();
+      }
     }
   }
 
@@ -708,6 +735,18 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
   
   intr_set_level (old_level);
+
+  if (thread_mlfqs){
+    //si es el primer thread, se inicializa nice y recent_cpu en 0, si no, entonces se toma el de parent
+    if (t== initial_thread){
+      t->nice = 0;
+      t->recent_cpu = 0;
+    }else{
+      t->nice = thread_get_nice ();
+      t->recent_cpu = thread_get_recent_cpu ();
+    }
+    
+  }
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
