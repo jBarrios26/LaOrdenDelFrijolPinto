@@ -181,7 +181,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   // si es
   if (thread_mlfqs){
     struct thread *cur;
-      cur = thread_current ();
+    cur = thread_current ();
       if (cur->status == THREAD_RUNNING)
         {
           cur->recent_cpu = ADD_FP_INT (cur->recent_cpu, 1);
