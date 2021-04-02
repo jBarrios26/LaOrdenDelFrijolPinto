@@ -3,10 +3,11 @@
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
-#include "devices/pit.h"
+#include "devices/pit.h" 
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "threads/fixed-point.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -175,6 +176,26 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
   remover_thread_durmiente(ticks);
+
+  // si el status del thread esta en running, entonces le suma un tick al recent_cpu
+  // si es
+  if (thread_mlfqs){
+    struct thread *cur;
+      cur = thread_current ();
+      if (cur->status == THREAD_RUNNING)
+        {
+          cur->recent_cpu = ADD_FP_INT (cur->recent_cpu, 1);
+        }
+      if (ticks % TIMER_FREQ == 0)    //el recent_cpu se tiene que calcular justo en este momento
+        {
+          calculate_load_avg ();      
+          all_threads_recent_cpu ();
+        }
+      if (ticks % 4 == 0)
+        {
+          all_threads_priority ();    // It is also recalculated once every fourth clock tick, for every thread
+        }
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
