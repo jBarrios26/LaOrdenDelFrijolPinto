@@ -93,8 +93,7 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int nice;                           /* Nice*/
-    int recent_cpu;                     /* Recent CPU*/
+    
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -120,6 +119,8 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+    int nice;                           /* Nice*/
+    int recent_cpu;                     /* Recent CPU*/
   };
 
 /* If false (default), use round-robin scheduler.

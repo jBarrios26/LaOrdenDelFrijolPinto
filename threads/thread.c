@@ -517,11 +517,11 @@ void
 all_threads_priority(void)
 {
   thread_foreach (recalculate_priority, NULL);
-  /* resort ready_list */
-  if (!list_empty (&ready_list))
+  /* if (!list_empty (&ready_list))
     {
-      list_sort (&ready_list, priority_value_less, NULL);
-    }
+      sort_ready_list();
+      //list_sort (&ready_list, priority_value_less, NULL);
+    } */
 }
 
 
