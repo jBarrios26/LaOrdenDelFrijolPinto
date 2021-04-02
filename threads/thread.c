@@ -563,8 +563,10 @@ calculate_load_avg(void){
   else ready_threads = list_ready_threads;
 
   //load_avg = (59/60)*load_avg + (1/60)*ready_threads
-  int a = MULTI(DIV_FP_INT(CONVERT_TO_FIXED_POINT(59),60),load_avg);
-  int b = MULTI_FP_INT(DIV_FP_INT(CONVERT_TO_FIXED_POINT(1),60),ready_threads);
+  int div1 = DIV_FP_INT(CONVERT_TO_FIXED_POINT(59),60);
+  int div2 = DIV_FP_INT(CONVERT_TO_FIXED_POINT(1),60);
+  int a = MULTI(div1,load_avg);
+  int b = MULTI_FP_INT(div2,ready_threads);
   load_avg = a + b; 
 }
 
