@@ -77,7 +77,6 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-static void sort_ready_list(void);
 static struct thread *get_max_priority_thread(void);
 
 
@@ -624,15 +623,7 @@ thread_get_recent_cpu (void)
   return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(thread_current()->recent_cpu,100));
 }
 
-/* Sort the ready thread list by priority */
-void 
-sort_ready_list(void)
-{
-  list_sort (&ready_list, priority_value_less, NULL);  
-  list_reverse (&ready_list);
-}
 
-/* */
 bool 
 priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
 {

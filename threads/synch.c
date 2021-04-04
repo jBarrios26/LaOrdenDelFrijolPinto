@@ -315,12 +315,6 @@ lock_try_acquire (struct lock *lock)
   return success;
 }
 
-static bool sort_locks (const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
-{
-  const struct lock *a_member = (list_entry(a_, struct lock, elem));
-  const struct lock *b_member = (list_entry(b_, struct lock, elem));
-  return a_member->holder->priority < b_member->holder->priority;
-}
 /* Releases LOCK, which must be owned by the current thread.
 
    An interrupt handler cannot acquire a lock, so it does not

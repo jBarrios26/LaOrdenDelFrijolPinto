@@ -34,6 +34,9 @@ struct lock
     struct list_elem elem;
   };
 
+struct list_elem *find_lock (struct list *donations, struct lock *lock);
+int print_donos(struct list *donations);
+
 void lock_init (struct lock *);
 void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);

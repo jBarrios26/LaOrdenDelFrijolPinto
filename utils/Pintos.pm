@@ -365,11 +365,11 @@ sub read_loader {
   # Jorge
   # $name = find_file ("/home/jorge/Desktop/cc7/LaOrdenDelFrijolPinto/userprog/build/loader.bin"); 
   # Gizeh
-   $name = find_file ("/home/gizehg/Desktop/LaOrdenDelFrijolPinto/threads/build/loader.bin");       
+  $name = find_file ("/home/gizehg/Desktop/LaOrdenDelFrijolPinto/threads/build/loader.bin");       
   # Chato
   # $name =  find_file ("/home/student/LaOrdenDelFrijolPinto/threads/build/loader.bin"); 
   # Juampa
-  # $name = find_file ("/home/j1pa864/ug/cc7/laOrdenDelFrijolPinto/threads/build/loader.bin") if !defined $name;
+  $name = find_file ("/home/j1pa864/ug/cc7/laOrdenDelFrijolPinto/threads/build/loader.bin") if !defined $name;
   
   die "Cannot find loader, please go to /utils/Pintos.pm and see if your user is being used.\n" if !defined $name;
 
