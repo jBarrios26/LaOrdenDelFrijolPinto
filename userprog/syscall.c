@@ -65,7 +65,6 @@ syscall_init (void)
   void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  // Revisar que el puntero sea el correcto.
   int status;
   char* cmd_name;
   int tid;
@@ -90,23 +89,17 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXIT:
       if (!verify_pointer((int*)f->esp + 1))
         exit(-1);
-      status = *((int*)f->esp + 1); // status is the first argument. Is stored 1 next to stack pointer (ESP). 
-
-      // TODO: Check for valid pointers.
-      // EXIT does not need to check if pointer is valid because it's argument is not a pointer. 
+      status = *((int*)f->esp + 1);
+      
       exit(status);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_EXEC:
-      // Get the name of the new process, the pointer is stored in esp + 1 (first argument of SYS_EXEC),
-      // ((int*)f->esp +1) returns the address of the argument, then need to dereference to then cast to char*.
       cmd_name = (char*)(*((int*)f->esp + 1)); 
-
-      if (!verify_pointer(cmd_name)){
+      if (!verify_pointer(cmd_name))
         exit(-1);
-        return;
-      }
+
       f->eax = exec(cmd_name);
       break;
 
@@ -133,24 +126,22 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       if (!verify_pointer(buffer))
         exit(-1);
-      // A0 = Bytes actualy read.
+      
       f->eax = read(fd, buffer, size);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_REMOVE:
       file_name = (char*)(*((int*)f->esp + 1)); 
-
-      if (!verify_pointer(file_name)){
+      if (!verify_pointer(file_name))
         exit(-1);
-      }
+      
       f->eax = remove(file_name);
       break;
 
     // *************************************************************************************************************************************************
     case SYS_OPEN:
       file_name = (void*)(*((int*)f->esp + 1)); 
-
       if (!verify_pointer(file_name))
         exit(-1);
       
@@ -161,9 +152,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_FILESIZE:
       if (!verify_pointer((int*)f->esp + 1))
         exit(-1);
-
+      
       fd = (*((int*)f->esp + 1)); 
-
       f->eax = filesize(fd);
       break;
 
@@ -178,8 +168,8 @@ syscall_handler (struct intr_frame *f UNUSED)
       file_name = (char*)(*((int*)f->esp + 1)); 
       if (!verify_pointer(file_name))
         exit(-1);
-      size = (*((int*)f->esp + 2));
 
+      size = (*((int*)f->esp + 2));
       f->eax = create(file_name, size);
       break;
 
@@ -190,8 +180,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       if (!verify_pointer((int*)f->esp + 3))
         exit(-1);
-      
-      
+
       fd = *((int*)f->esp + 1);
       buffer = (void*)(*((int*)f->esp + 2));
       size = *((int*)f->esp + 3);
@@ -208,8 +197,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       
       if (!verify_pointer((int*)f->esp + 2))
         exit(-1);
-            
-
+          
       fd = *((int*)f->esp + 1);
       position = *((int*)f->esp + 2);
 
@@ -244,7 +232,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     2. The pointer is allocated in thread page.
 
 */
-  bool 
+bool 
 verify_pointer(void *pointer)
 {
   struct thread *cur = thread_current(); 
@@ -260,25 +248,20 @@ verify_pointer(void *pointer)
 }
 
 
-  void 
+void 
 exit(int status)
 {
   struct thread *cur = thread_current();
   // Process termination message. 
   printf("%s: exit(%d)\n", cur->name, status);
-  //TODO: Communicate parent the status.
-  //printf("\n%s sale %lu\n", cur->name, timer_ticks());
+  
   struct thread *parent = get_thread(cur->parent);
-  //printf("\n\n%d %d\n\n", cur->parent, hash_size(&parent->children));
   if (parent)
   {
     struct children_process child;
     child.pid = cur->tid;
     struct children_process *child_control = hash_entry(hash_find(&parent->children, &child.elem), struct children_process, elem);
-    //printf("Se va a despertar el padre");
     if (child_control){
-      //printf("SE va a despertar al padre");
-      //sema_up(&parent->wait_sema);
       lock_acquire(&parent->wait_lock);
       child_control->finish = true; 
       child_control->status = status;
@@ -287,10 +270,8 @@ exit(int status)
     }
   }
   
-  //TODO: Comunicate children processes that parent is exiting.
   hash_apply(&cur->children, delete_parent_from_child);
-  //TODO: Free resources of the thread.
-    hash_destroy(&cur->children, delete_children);
+  hash_destroy(&cur->children, delete_children);
 
   struct lock *lock;
   while (!list_empty(&cur->locks))
@@ -307,18 +288,13 @@ exit(int status)
   {   
     struct open_file *op_file = list_entry(iter, struct open_file, at);
     iter = list_next(iter);
-    //printf("antes Todos files %d\n", list_size(&all_files));
     close(op_file->fd);
-    //printf("despuest Todos files %d\n", list_size(&all_files));
   }
-  // printf("Todos files %d\n", list_size(&all_files));
-
-  
   
   thread_exit();
 }
 
-  pid_t 
+pid_t 
 exec(const char* cmd_line)
 {
   tid_t child;
@@ -326,8 +302,9 @@ exec(const char* cmd_line)
   struct children_process *child_p = NULL;
   cur->child_load = false;
   cur->child_status = false;
-  // Create the process, start to load the new process and returns the TID (PID)
+  
   child = process_execute(cmd_line);
+  
   if (child == -1) 
     return TID_ERROR;
   else{
@@ -338,22 +315,15 @@ exec(const char* cmd_line)
     child_p->parent_waited = false;
     hash_insert(&cur->children, &child_p->elem);
   }
-  // Use a monitor that  allows the child to message his parent.
-  //lock_acquire(&cur->process_lock);
-  // If child hasn't load then wait. To avoid race conditions.
+  
   if(!cur->child_load)
-    sema_down(&cur->exec_sema);
-    //cond_wait(&cur->msg_parent, &cur->process_lock);
+    sema_down(&cur->exec_sema);;
 
-
-  // Check the exec_status of child.
   if (!cur->child_status){
     hash_delete(&cur->children,&child_p->elem);
     free(child_p);
     child = -1;
   }
-
-  //lock_release(&cur->process_lock);
 
   return child;
 }
@@ -363,9 +333,11 @@ bool
 create(const char* file, unsigned initial_size)
 {
   bool status = false;
+  
   lock_acquire(&file_system_lock);
-  if(filesys_create(file, initial_size)) status = true;
+  status = filesys_create(file, initial_size);
   lock_release(&file_system_lock);
+  
   return status;;
 }
 
@@ -373,9 +345,11 @@ bool
 remove(const char* file)
 {
   bool status = false;
+  
   lock_acquire(&file_system_lock);
-  if(filesys_remove(file)) status = true;
+  status = filesys_remove(file);
   lock_release(&file_system_lock);
+  
   return status;
 }
 
@@ -385,6 +359,7 @@ open(const char* file)
   struct thread *cur = thread_current();
   struct file *last_file = NULL;
   struct file *file_op = NULL;
+
   struct list_elem *iter = list_begin(&all_files);
   while (iter != list_end(&all_files))
   {
@@ -404,18 +379,18 @@ open(const char* file)
   lock_release(&file_system_lock);
   
   if(file_op != NULL){
-   struct open_file *op_file = malloc(sizeof(struct open_file));
-   op_file->fd = cur->fd_next++;
-   op_file->tfiles = file_op;
-   op_file->name = (char*)file;
-   list_push_back(&cur->files, &op_file->at);
-   list_push_back(&all_files, &op_file->af);
-   return op_file->fd;
+    struct open_file *op_file = malloc(sizeof(struct open_file));
+    op_file->fd = cur->fd_next++;
+    op_file->tfiles = file_op;
+    op_file->name = (char*)file;
+    list_push_back(&cur->files, &op_file->at);
+    list_push_back(&all_files, &op_file->af);
+    return op_file->fd;
   }
   return -1;
 }
 
-  int 
+int 
 filesize(int fd)
 {
   int size = 0;
@@ -430,7 +405,8 @@ filesize(int fd)
   return size;
 }
 
-struct open_file * get_file(int fd){
+struct open_file 
+*get_file(int fd){
     struct list * opfiles = &thread_current()->files;
     struct list_elem *files= list_begin(opfiles);    
     while (files != list_end(opfiles))
@@ -444,12 +420,11 @@ struct open_file * get_file(int fd){
 }
 
 
-  int 
+int 
 read(int fd, char* buffer, unsigned size)
 {
   int read_size = -1;
 
-  // Read from file
   if (fd){    
     struct open_file *opened_file = get_file(fd);
     if (opened_file != NULL){
@@ -459,18 +434,16 @@ read(int fd, char* buffer, unsigned size)
       lock_release(&file_system_lock);
     }
   }
-  // Read from keyboard
   else {
     int i = 0;
-    while(i < size){
+    while(i < size)
       buffer[i++] = input_getc();
-    }
     read_size = size;
   }
   return read_size;
 }
 
-  int 
+int 
 write (int fd, void* buffer, unsigned size)
 {
   if (fd == STDIN_FILENO){
@@ -491,7 +464,7 @@ write (int fd, void* buffer, unsigned size)
   }
 }
 
-  void 
+void 
 seek(int fd, unsigned position)
 {
   int size = filesize(fd);
@@ -512,7 +485,6 @@ seek(int fd, unsigned position)
   unsigned 
 tell(int fd)
 {
-  // Returns the next byte to be read, in bytes.
   struct open_file *opened_file = get_file(fd);
   struct file *temp_file = opened_file->tfiles;
   

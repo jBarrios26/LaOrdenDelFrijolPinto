@@ -26,9 +26,11 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-
-
-
+static int reverse_args(char *args, char *reversed, char *aux);
+static void push_args(char *args, void **esp, void *address[]);
+static int push_name(char *name, void **esp, void *address[], int argc);
+static void push_addresses(void **esp, void *adress[], int argc); 
+static void align_mem(void **esp);
 
 static unsigned
 children_hash (const  struct hash_elem *elem, void *aux UNUSED)
@@ -74,15 +76,18 @@ process_execute (const char *file_name)
     return TID_ERROR;
   }
 
+  /* If children hash map hasn't been initialized, then the parent process is really a kernel thread that
+  is executing a new process and his children hash map has not been initialized. */
   if (!thread_current()->children_init)
   {
     hash_init(&thread_current()->children, children_hash, childres_hash_less, NULL);
-      struct children_process *child_p = malloc(sizeof(struct children_process));
-      child_p->pid = tid;
-      child_p->status = -1;
-      child_p->finish = false;
-      child_p->parent_waited = false;
-      hash_insert(&cur->children, &child_p->elem);
+    /* Create a new children_process control struct to keep control of children process. */
+    struct children_process *child_p = malloc(sizeof(struct children_process));
+    child_p->pid = tid;
+    child_p->status = -1;
+    child_p->finish = false;
+    child_p->parent_waited = false;
+    hash_insert(&cur->children, &child_p->elem);
     thread_current()->children_init = true;
   }
   palloc_free_page (fn_copy);
@@ -122,20 +127,14 @@ start_process (void *file_name_)
   /* Acquire lock from parent to modify state variables and signal him.*/
     if (!success)
     {
-      // lock_acquire(&parent->process_lock);
       parent->child_load = true;
       sema_up(&parent->exec_sema);
       thread_exit();
-      // cond_signal(&parent->msg_parent, &parent->process_lock);
-      // lock_release(&parent->process_lock);
     }else
     {
-      //lock_acquire(&parent->process_lock);
       parent->child_status = true;
       parent->child_load = true;
       sema_up(&parent->exec_sema);
-      // cond_signal(&parent->msg_parent, &parent->process_lock);
-      // lock_release(&parent->process_lock);
     }
   }
 
@@ -164,7 +163,7 @@ process_wait (tid_t child_tid)
   struct thread *cur;
   cur = thread_current();
 
-  // get the child process from parent children hash table.
+  /*  get the child process from parent children hash table. */
   struct children_process child;
   child.pid = child_tid;
 
@@ -177,25 +176,25 @@ process_wait (tid_t child_tid)
   {
     return -1;
   }
-  //debug_backtrace_all();
   /*
     If finish is true then child process maybe have exited on their own or current may have already waited for him once.
   */
   struct children_process *child_control;
   child_control = hash_entry(child_elem, struct children_process, elem);
 
+  /* Check if the current has already waited for this child once. */
   if (child_control->parent_waited)
   {
     return -1;
   }
+
+  /* Check if child has already finish, then return its status. */
   if (child_control->finish){
     child_control->parent_waited = true;
     return child_control->status;
   }
-  // child_control->parent_waited = true;
-  // cur->child_waiting = child_tid;
-  // sema_down(&cur->wait_sema);
-  // cur->child_waiting = 0;
+
+  /* Wait for child to finish executing. Parent process waits here and child process signals from exit SYSCALL. */
   lock_acquire(&cur->wait_lock);
     while (!child_control->finish)
     {
@@ -347,7 +346,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", t->name);
       goto done;
     }
-  /* create open file struct and push it to thread files and all files list*/
+  /* create open file struct and push it to thread files and all files list */
   struct open_file *op_file = malloc(sizeof(struct open_file));
   file_deny_write(file);
   op_file->fd = t->fd_next++;
@@ -566,7 +565,6 @@ static bool
 setup_stack (void **esp, char *args, char *name)
 {
   uint8_t *kpage;
-  char *token, *save_ptr, *save_ptr2;
   bool success = false;
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)
@@ -576,59 +574,33 @@ setup_stack (void **esp, char *args, char *name)
 
       *esp = PHYS_BASE;
       /* SETUP args in stack*/
-      int argc = 0;
-      char *reverse_args, *aux = "";
-      reverse_args = palloc_get_page(PAL_USER | PAL_ZERO);
+      char *reverse, *aux = "";
+      reverse = palloc_get_page(PAL_USER | PAL_ZERO);
       aux = palloc_get_page(PAL_USER |PAL_ZERO);
 
-      if (reverse_args == NULL || aux == NULL){
+      if (reverse == NULL || aux == NULL){
         success = false;
-        palloc_free_page(reverse_args);
+        palloc_free_page(reverse);
         palloc_free_page(aux);
         return success;
       }
-      for (token = strtok_r (args, " ", &save_ptr); token != NULL;
-            token = strtok_r (NULL, " ", &save_ptr))
-            {
-              strlcpy(aux, token, PGSIZE);
-              strlcat(aux, " ", PGSIZE);
-              strlcat(aux, reverse_args, PGSIZE);
-              strlcpy(reverse_args, aux, PGSIZE);
-              ++argc;
-            }
-      void *addresses[argc+1];
-      char *save;
-      argc = 0;
-      // PUSH strings of args to the stack.
-      if (strlen(reverse_args) > 0){
-        for (token = strtok_r (reverse_args, " ", &save_ptr2); token != NULL;
-              token = strtok_r (NULL, " ", &save_ptr2))
-        {
-          *esp-= strlen(token)+1;
-          memcpy(*esp, token, strlen(token)+1);
-          addresses[argc++] = *esp;
-        }
-      }
-      // Push the name to the stack
-      *esp-= strlen(name)+1;
-      memcpy(*esp, name, strlen(name)+1);
-      addresses[argc++] = *esp;
+
+      int argc = reverse_args(args, reverse, aux); 
+
+      void *addresses[argc + 1];
+      
+      push_args(reverse, esp, addresses); 
+      
+      argc = push_name(name, esp, addresses, argc); 
 
       // Align memory.
-      int mem_align =  (-1 * (int)*esp) % 4;
-      *esp -= mem_align;
-      memset(*esp, 0, mem_align);
+      align_mem(esp); 
 
       // Write argv addresses.
       *esp -= 4;
       memset (*esp, 0, 4);
 
-      int i = 0;
-      while (i < argc)
-      {
-        *esp -= sizeof(char *);
-        memcpy(*esp,  &addresses[i++], sizeof(char*));
-      }
+      push_addresses(esp, addresses, argc); 
 
       // push argv[0] address
       void *argv0 = *esp;
@@ -642,13 +614,12 @@ setup_stack (void **esp, char *args, char *name)
       memset(*esp, 0, sizeof(void*));
 
       palloc_free_page(aux);
-      palloc_free_page(reverse_args);
+      palloc_free_page(reverse);
     }
     else
       palloc_free_page (kpage);
   }
 
-  //hex_dump(PHYS_BASE - (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), *esp, (uint32_t)(((uint8_t *)PHYS_BASE) - ((uint32_t)*esp)), true);
   return success;
 }
 
@@ -672,3 +643,66 @@ install_page (void *upage, void *kpage, bool writable)
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
 
+/* Take the args string and reverse de agrs order. 
+   Input: arg0 arg1 arg2 
+   Output: arg2 arg1 arg0   
+*/
+static int reverse_args(char *args, char *reverse, char *aux)
+{
+  char *token, *save_ptr; 
+  int argc = 0; 
+  for (token = strtok_r (args, " ", &save_ptr); token != NULL;
+        token = strtok_r (NULL, " ", &save_ptr))
+        {
+          strlcpy(aux, token, PGSIZE);
+          strlcat(aux, " ", PGSIZE);
+          strlcat(aux, reverse, PGSIZE);
+          strlcpy(reverse, aux, PGSIZE);
+          ++argc; 
+        }
+  return argc;
+}
+
+/* Push  the args strings to the stack. Expects that the args list has already been reversed.*/
+static void push_args(char *args, void **esp, void *address[])
+{
+  char *token, *save_ptr;
+  int argc = 0;
+  if (strlen(args) > 0){
+    for (token = strtok_r (args, " ", &save_ptr); token != NULL;
+          token = strtok_r (NULL, " ", &save_ptr))
+    {
+      *esp-= strlen(token)+1;
+      memcpy(*esp, token, strlen(token)+1);
+      address[argc++] = *esp;
+    }
+  }
+}
+
+/* Push the executable name to the stack. */
+static int push_name(char *name, void **esp, void *address[], int argc)
+{
+  *esp-= strlen(name)+1;
+  memcpy(*esp, name, strlen(name)+1);
+  address[argc++] = *esp;
+  return argc;
+}
+
+/* Push the addresses of the arguments to the stack. This simulates the array argv*/
+static void push_addresses(void **esp, void *address[], int argc)
+{
+  int i = 0;
+  while (i < argc)
+  {
+    *esp -= sizeof(char *);
+    memcpy(*esp,  &address[i++], sizeof(char*));
+  }
+}
+
+/* Aligns the memory because pushing the strings to the stack could leave the stack pointer unaligned. */
+static void align_mem(void **esp)
+{
+  int mem_align =  (-1 * (int)*esp) % 4;
+  *esp -= mem_align;
+  memset(*esp, 0, mem_align);
+}
