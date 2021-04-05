@@ -47,7 +47,7 @@ La primera tarea para pasar los argumentos es ir a la función `process_execute(
 Por ejemplo: Una llamada a un nuevo proceso puede ser el siguiente: `new_process arg1 arg2 arg3`
 {% endhint %}
 
-Entonces es necesario separar el nombre del archivo de sus argumentos. Para lograr esto se utiliza la función `strtok_r(char* str, char* delim, char** save_ptr).` Y al conseguir el nombre con este tokenizer ya se crea el thread con el token del nombre y se le envia una copia de los parámetros al nuevo thread.
+Entonces es necesario separar el nombre del archivo de sus argumentos. Para lograr esto se utiliza la función `strtok_r(char* str, char* delim, char** save_ptr).` Y al conseguir el nombre con este tokenizer ya se crea el thread con el token del nombre y se le envía una copia de los parámetros al nuevo thread.
 
 {% tabs %}
 {% tab title="process\_execute\(char\* filen" %}
