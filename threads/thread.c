@@ -101,7 +101,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-
+  list_init(&all_files);
   list_init (&wait_sleeping_list);
 
   /* Set up a thread structure for the running thread. */
@@ -110,6 +110,7 @@ thread_init (void)
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
   load_avg = 0;   // se inicializa en 0
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -183,18 +184,19 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-
+  struct thread *cur = thread_current();
   ASSERT (function != NULL);
 
   /* Allocate thread. */
+ 
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+  t->parent = cur->tid;
   tid = t->tid = allocate_tid ();
-
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -312,7 +314,7 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
-
+  //printf("Sale %s %d", thread_current()->name, thread_current()->tid);
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
@@ -484,6 +486,24 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
+/*
+  Search a thread by TID in all threads list. Returns a thread pointer if tid 
+  is in all_list, else returns NULL pointer. 
+*/
+struct thread
+*get_thread(tid_t tid)
+{
+  struct list_elem *iter = list_begin(&all_list);
+  while (iter != list_end(&all_list))
+  {
+    struct thread *t = list_entry(iter, struct thread, allelem); 
+    //printf("%s %d ==? %d\n",t->name, t->tid, tid );
+    if (t->tid == tid)
+      return t;
+    iter = list_next(iter);
+  }
+  return NULL;
+}
 
 /*Cambia el valor de nice del thred actual por new_nice 
   y recalcula la prioridad del thread basado en este nuevo valor. 
@@ -712,6 +732,7 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
+
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
@@ -720,10 +741,18 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->original_priority = priority;
   t->waiting = NULL;
+  t->children_init=false;
+  t->fd_next = 2;
+  t->fd_exec = -1;
   list_init(&t->locks);
   list_init(&t->donations);
-
-
+  list_init (&t->files);
+  sema_init(&t->exec_sema, 0);
+  // sema_init(&t->wait_sema, 0);
+  // lock_init(&t->process_lock);
+  // cond_init(&t->msg_parent);
+  lock_init(&t->wait_lock);
+  cond_init(&t->wait_cond);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   

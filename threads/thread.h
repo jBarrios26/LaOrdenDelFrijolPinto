@@ -3,6 +3,8 @@
 
 #include <debug.h>
 #include <list.h>
+#include <hash.h>
+#include "threads/synch.h"
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -95,6 +97,7 @@ struct thread
     int priority;                       /* Priority. */
     
     struct list_elem allelem;           /* List element for all threads list. */
+  
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -103,25 +106,52 @@ struct thread
     /* Synchonization variables */
                /* All the donations that the thread has received. Sorted by priority from lowest to highest */
     struct lock *waiting; 
+    struct thread *lock_holder;
     struct list locks; 
     struct list donations; 
-
-
-    /* Synchonization variables */
-    int donated_priority;              /* The highest priority donated. (starts at 0) */
     int original_priority;
-    struct thread *lock_holder;        /* Thread that is holding the needed lock */
+
+    /* Process variables */
+    int child_cor;
+    tid_t parent;
+    tid_t child_waiting;
+    bool child_load;
+    bool child_status;
+    bool children_init;
+    struct hash children;
+    struct semaphore exec_sema; 
+   //  struct semaphore wait_sema;
+   //  struct condition msg_parent;
+   //  struct lock process_lock;
+
+    struct lock wait_lock;
+    struct condition wait_cond; 
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+    /* Used in syscall open. */
+     int fd_next;                             /* ID of fiel descriptor*/
+     struct list files;
+     int fd_exec;
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
     int nice;                           /* Nice*/
     int recent_cpu;                     /* Recent CPU*/
   };
+
+  struct open_file{
+    int fd;
+    char* name;
+    struct file *tfiles;
+    struct list_elem af;
+    struct list_elem at;
+  };
+  struct list all_files;
+
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -155,6 +185,7 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+struct thread *get_thread(tid_t tid);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
