@@ -119,9 +119,9 @@ start_process (void *file_name_)
   hash_init(&cur->children, children_hash, childres_hash_less, NULL);
   cur->children_init = true;
   struct thread* parent = get_thread(cur->parent);
-  struct children_process child;
-  child.pid = cur->tid;
-  struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
+  // struct children_process child;
+  // child.pid = cur->tid;
+  // struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
 
   if (parent != NULL  ){
   /* Acquire lock from parent to modify state variables and signal him.*/
@@ -565,8 +565,9 @@ static bool
 setup_stack (void **esp, char *args, char *name)
 {
   uint8_t *kpage;
-  char *token, *save_ptr;
-  int start_stack = 0;
+  // char *token;
+  // char *save_ptr;
+  // int start_stack = 0;
   bool success = false;
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL)

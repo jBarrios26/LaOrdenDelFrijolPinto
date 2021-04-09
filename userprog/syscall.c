@@ -18,6 +18,7 @@
 #include "filesys/file.h"
 
 #include "devices/timer.h"
+#include "devices/input.h"
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
@@ -439,7 +440,7 @@ read(int fd, char* buffer, unsigned size)
   }
   else {
     int i = 0;
-    while(i < size)
+    while((unsigned int)i < size)
       buffer[i++] = input_getc();
     read_size = size;
   }
@@ -475,7 +476,7 @@ seek(int fd, unsigned position)
   struct open_file *opened_file = get_file(fd);
   struct file *temp_file = opened_file->tfiles;
 
-  if (position < size){
+  if (position < (unsigned int)size){
     lock_acquire(&file_system_lock);
     file_seek(temp_file, position);
     lock_release(&file_system_lock);
