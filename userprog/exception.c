@@ -6,11 +6,16 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+
+#include "vm/spage.h"
+#include "vm/frame.h"
+
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+bool stack_growth(void *fault_address);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -142,25 +147,48 @@ page_fault (struct intr_frame *f)
   intr_enable ();
   /* Count page faults. */
   page_fault_cnt++;
-   if (fault_addr == NULL){
-      exit(-1);
-   }
-
-   if(!is_user_vaddr(fault_addr))
-      exit(-1);
   /* Determine cause. */
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  /* To implement virtual memory, delete the rest of the function
-     body, and replace it with code that brings in the page to
-     which fault_addr refers. */
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-  kill (f);
+   /* Write to ReadOnly page. */ 
+   if (!not_present)
+      exit(-1); 
+
+   /* fault address is NULL */
+   if (fault_addr == NULL){
+      exit(-1);
+   }
+
+   /* fault address is from kernel address space. */
+   if(!is_user_vaddr(fault_addr))
+      exit(-1);
+
+   const struct spage *page = NULL;
+   if (page == NULL && (f->esp - 32)  >= fault_addr && f->esp + fault_addr <= 0x80408000)
+      stack_growth();
+   else{
+      /* To implement virtual memory, delete the rest of the function
+         body, and replace it with code that brings in the page to
+         which fault_addr refers. */
+      printf ("Page fault at %p: %s error %s page in %s context.\n",
+               fault_addr,
+               not_present ? "not present" : "rights violation",
+               write ? "writing" : "reading",
+               user ? "user" : "kernel");
+      kill (f);
+   }
+   
 }
 
+bool stack_growth(void *fault_address)
+{
+   void *upage = pg_round_down(fault_address); 
+   uint32_t* frame = create_frame(upage, true); 
+   if (frame != NULL){
+      get_page(upage, true);
+      return true;
+   }else 
+      return false; 
+}

@@ -24,6 +24,9 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 
+#include "vm/spage.h"
+#include "vm/frame.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static int reverse_args(char *args, char *reversed, char *aux);
@@ -44,6 +47,22 @@ static bool childres_hash_less (const struct hash_elem *a, const struct hash_ele
   const struct children_process *b_ = hash_entry (b, struct children_process, elem);
   return a_->pid < b_->pid;
 }
+
+static unsigned
+sptable_hash(const struct hash_elem *elem_, void *aux UNUSED)
+{
+  const struct spage_entry *spage = hash_entry(elem_, struct spage_entry, elem);
+  return hash_bytes(spage->upage, sizeof(spage->upage)); 
+}
+
+static unsigned
+sptable_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
+{
+  const struct spage_entry *a_ = hash_entry(a, struct spage_entry, elem);
+  const struct spage_entry *b_ = hash_entry(b, struct spage_entry, elem);
+  return a_->upage < b_->upage;
+}
+
 
 
 /* Starts a new thread running a user program loaded from
@@ -112,6 +131,8 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page(file_name_);
+
+  hash_init(&cur->sup_table, sptable_hash, sptable_hash_less, NULL);
 
   /* Need to check if load was successful and signal the parent thread.
      Need to use the synchronization variables defined on the parent thread.
@@ -450,9 +471,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   return success;
 }
 
-/* load() helpers. */
-
-static bool install_page (void *upage, void *kpage, bool writable);
 
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
@@ -569,12 +587,11 @@ setup_stack (void **esp, char *args, char *name)
   // char *save_ptr;
   // int start_stack = 0;
   bool success = false;
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = create_frame(((uint8_t*)PHYS_BASE - PGSIZE), false); 
   if (kpage != NULL)
   {
-    success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-    if (success){
-
+    if (get_page(((uint8_t)PHYS_BASE - PGSIZE), true))
+    { 
       *esp = PHYS_BASE;
       /* SETUP args in stack*/
       char *reverse, *aux = "";
@@ -619,8 +636,6 @@ setup_stack (void **esp, char *args, char *name)
       palloc_free_page(aux);
       palloc_free_page(reverse);
     }
-    else
-      palloc_free_page (kpage);
   }
 
   return success;

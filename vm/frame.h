@@ -25,12 +25,16 @@ struct frame_entry
 
     // Save if it is data, file or executable. 
     // Save if it is pinned.
+
+    struct list_elem elem; 
 }
 
 void frame_init(void);
 
-uint32_t* frame_allocate(void); 
-void frame_deallocate(uint32_t* page); 
+uint32_t* create_frame(void *upage, bool writable); 
+bool install_frame(uint32_t* frame, void* upage, bool writable);
+bool destroy_frame(struct frame_entry *fte); 
+uint32_t* evict_frame();
 
 
 #endif

@@ -104,7 +104,6 @@ struct thread
     int64_t time_sleeping;              /* Tiempo que duerme un thread*/
 
     /* Synchonization variables */
-               /* All the donations that the thread has received. Sorted by priority from lowest to highest */
     struct lock *waiting; 
     struct thread *lock_holder;
     struct list locks; 
@@ -120,12 +119,13 @@ struct thread
     bool children_init;
     struct hash children;
     struct semaphore exec_sema; 
-   //  struct semaphore wait_sema;
-   //  struct condition msg_parent;
-   //  struct lock process_lock;
 
     struct lock wait_lock;
     struct condition wait_cond; 
+
+   /*VM Variables*/
+   struct hash sup_table; 
+
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

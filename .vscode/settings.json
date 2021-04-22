@@ -7,6 +7,8 @@
     "debug.h": "c",
     "string.h": "c",
     "features.h": "c",
-    "stddef.h": "c"
+    "stddef.h": "c",
+    "spage.h": "c",
+    "palloc.h": "c"
   }
 }
