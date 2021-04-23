@@ -21,7 +21,7 @@ struct spage_entry
 
     uint64_t access_time; 
     struct hash_elem elem; 
-}
+};
 
 bool get_page(void* upage, bool writable);
 void destroy_SPtable(struct hash *table);

@@ -7,6 +7,7 @@
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 
+struct frame_entry *lookup_frame(void *frame); 
 
 void 
 frame_init(void)
@@ -17,30 +18,62 @@ frame_init(void)
 
 /*
     Creates a new frame and saves it in the frame table. 
-    Returns the newly install frame or NULL if allocation of installation failed.
+    Returns the new frame or NULL if allocation failed.
 */
-uint32_t*
-create_frame(void *upage, bool writable)
+void*
+create_frame()
 {
-    uint32_t* frame = (uint32_t*)palloc_get_page(PAL_USER | PAL_ZERO);
+    void* frame = palloc_get_page(PAL_USER | PAL_ZERO);
     if (frame)
     {
-        if (! install_frame(frame, upage, writable)){
-            palloc_free_page((void *)  frame);
-            return NULL;
-        }
-        struct frame_entry *new_frame = (frame_entry*) malloc(sizeof(frame_entry));
+        struct frame_entry *new_frame = (struct frame_entry*) malloc(sizeof(struct frame_entry));
         
         new_frame->frame = frame; 
         new_frame->owner = thread_current();
-        new_frame->upage = upage;
-        list_push_back(&frame_table, new_frame->elem);
+        list_push_back(&frame_table, &new_frame->elem);
     }
-    return frame
+    return frame;
 }
 
+/*
+    Install a frame in the process page directory. 
+*/
 bool 
-install_frame(uint32_t *frame, void *upage, bool writable)
+install_frame(void *frame, void *upage, bool writable)
 {
-    return install_page(upage, frame, writable); 
+    struct frame_entry *fte = lookup_frame(frame); 
+    bool success = install_page(upage, frame, writable); 
+    if (success)
+        fte->upage = upage; 
+    return success;
+}
+
+/*
+    Destroys a frame table entry. Releases all allocated resources. 
+*/
+void
+destroy_frame(void *frame)
+{
+    struct frame_entry *fte = lookup_frame(frame); 
+    if (fte)
+    {
+        list_remove(&fte->elem); 
+        palloc_free_page(fte->frame); 
+        free(fte); 
+    }
+}
+/*
+    Searchs up a frame entry in the frame table. Return the frame table entry or NULL if it is not allocated. 
+*/
+struct frame_entry 
+*lookup_frame(void *frame)
+{
+    struct list_elem *iter = list_begin(&frame_table); 
+    while (iter != list_end(&frame_table)){
+        struct frame_entry *fte = list_entry(iter, struct frame_entry, elem); 
+        if (fte->frame == frame)
+            return fte; 
+        iter = list_next(iter); 
+    }
+    return NULL; 
 }

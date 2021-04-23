@@ -55,7 +55,7 @@ sptable_hash(const struct hash_elem *elem_, void *aux UNUSED)
   return hash_bytes(spage->upage, sizeof(spage->upage)); 
 }
 
-static unsigned
+static bool
 sptable_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
 {
   const struct spage_entry *a_ = hash_entry(a, struct spage_entry, elem);
@@ -127,12 +127,12 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  hash_init(&cur->sup_table, sptable_hash, sptable_hash_less, NULL);
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page(file_name_);
 
-  hash_init(&cur->sup_table, sptable_hash, sptable_hash_less, NULL);
 
   /* Need to check if load was successful and signal the parent thread.
      Need to use the synchronization variables defined on the parent thread.
@@ -587,11 +587,13 @@ setup_stack (void **esp, char *args, char *name)
   // char *save_ptr;
   // int start_stack = 0;
   bool success = false;
-  kpage = create_frame(((uint8_t*)PHYS_BASE - PGSIZE), false); 
+  kpage = create_frame(); 
   if (kpage != NULL)
   {
-    if (get_page(((uint8_t)PHYS_BASE - PGSIZE), true))
+    success = install_frame(kpage, ((uint8_t*)PHYS_BASE) - PGSIZE , true );
+    if (success)
     { 
+      get_page(((uint8_t*)PHYS_BASE - PGSIZE), true);
       *esp = PHYS_BASE;
       /* SETUP args in stack*/
       char *reverse, *aux = "";
@@ -635,6 +637,8 @@ setup_stack (void **esp, char *args, char *name)
 
       palloc_free_page(aux);
       palloc_free_page(reverse);
+    }else{
+      destroy_frame(kpage);
     }
   }
 
@@ -650,7 +654,7 @@ setup_stack (void **esp, char *args, char *name)
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-static bool
+bool
 install_page (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();

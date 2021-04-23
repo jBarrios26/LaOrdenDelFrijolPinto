@@ -166,12 +166,20 @@ page_fault (struct intr_frame *f)
       exit(-1);
 
    const struct spage *page = NULL;
-   if (page == NULL && (f->esp - 32)  >= fault_addr && f->esp + fault_addr <= 0x80408000)
-      stack_growth();
+   if (page == NULL && (f->esp - 32)  <= fault_addr && (void*)(PHYS_BASE - fault_addr) <= (void*)0x80408000)
+      stack_growth(fault_addr);
    else{
+      /*
+         If a USER fault address got to this point, means this access was trying to access the stack but failed to pass the growth stack assertions. 
+      */
+      if (is_user_vaddr(fault_addr))
+         exit(-1);    
+      
+      
       /* To implement virtual memory, delete the rest of the function
          body, and replace it with code that brings in the page to
          which fault_addr refers. */
+
       printf ("Page fault at %p: %s error %s page in %s context.\n",
                fault_addr,
                not_present ? "not present" : "rights violation",
@@ -185,9 +193,14 @@ page_fault (struct intr_frame *f)
 bool stack_growth(void *fault_address)
 {
    void *upage = pg_round_down(fault_address); 
-   uint32_t* frame = create_frame(upage, true); 
+   uint32_t* frame = create_frame(); 
    if (frame != NULL){
-      get_page(upage, true);
+      bool success = install_frame(frame, upage, true); 
+      if (!success){
+         destroy_frame(frame);
+         return false;
+      }
+      get_page(upage, true); 
       return true;
    }else 
       return false; 

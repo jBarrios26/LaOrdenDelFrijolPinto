@@ -18,7 +18,7 @@ struct lock frame_lock;
 */
 struct frame_entry
 {
-    uint32_t* frame;
+    void* frame;
     void* upage;
 
     struct thread* owner; 
@@ -27,14 +27,14 @@ struct frame_entry
     // Save if it is pinned.
 
     struct list_elem elem; 
-}
+};
 
 void frame_init(void);
 
-uint32_t* create_frame(void *upage, bool writable); 
-bool install_frame(uint32_t* frame, void* upage, bool writable);
-bool destroy_frame(struct frame_entry *fte); 
-uint32_t* evict_frame();
+void* create_frame(void); 
+bool install_frame(void *frame, void* upage, bool writable);
+void destroy_frame(void *frame); 
+uint32_t* evict_frame(void);
 
 
 #endif
