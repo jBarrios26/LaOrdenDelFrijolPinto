@@ -9,6 +9,7 @@
 #include "threads/thread.h"
 #include "threads/fixed-point.h"
 #include "vm/frame.h"
+#include "vm/frame.c"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -192,7 +193,11 @@ timer_interrupt (struct intr_frame *args UNUSED)
           all_threads_priority ();    // It is also recalculated once every fourth clock tick, for every thread
         }
       }
-       if(pagedir_is_accessed()){
+
+      
+      struct frame_entry *frame;
+        frame = lookup_frame(frame);
+       if(pagedir_is_accessed(frame->upage)){
         pagedir_set_accessed();
       }
 }
