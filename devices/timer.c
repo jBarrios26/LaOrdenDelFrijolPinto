@@ -8,6 +8,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/fixed-point.h"
+#include "vm/frame.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -172,7 +173,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
   remover_thread_durmiente(ticks);
 
-  // si el status del thread esta en running, entonces le suma un tick al recent_cpu
+  // si el status del thread esta en running, entonces le suma un tick al recent_cpu  
   // si es
   if (thread_mlfqs){
     struct thread *cur;
@@ -190,7 +191,10 @@ timer_interrupt (struct intr_frame *args UNUSED)
         {
           all_threads_priority ();    // It is also recalculated once every fourth clock tick, for every thread
         }
-  }
+      }
+       if(pagedir_is_accessed()){
+        pagedir_set_accessed();
+      }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
