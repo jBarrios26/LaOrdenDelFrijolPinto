@@ -195,11 +195,11 @@ timer_interrupt (struct intr_frame *args UNUSED)
       }
 
       
-      struct frame_entry *frame;
-        frame = lookup_frame(frame);
-       if(pagedir_is_accessed(frame->upage)){
-        pagedir_set_accessed();
-      }
+      // struct frame_entry *frame;
+      //   frame = lookup_frame(frame);
+      //  if(pagedir_is_accessed(frame->upage)){
+      //   pagedir_set_accessed();
+      // }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
