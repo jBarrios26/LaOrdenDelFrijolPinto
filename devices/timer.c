@@ -9,7 +9,6 @@
 #include "threads/thread.h"
 #include "threads/fixed-point.h"
 #include "vm/frame.h"
-#include "vm/frame.c"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -179,20 +178,20 @@ timer_interrupt (struct intr_frame *args UNUSED)
   if (thread_mlfqs){
     struct thread *cur;
     cur = thread_current ();
-      if (cur->status == THREAD_RUNNING)
-        {
-          cur->recent_cpu = ADD_FP_INT (cur->recent_cpu, 1);
-        }
-      if (ticks % TIMER_FREQ == 0)    //el recent_cpu se tiene que calcular justo en este momento
-        {
-          calculate_load_avg ();      
-          all_threads_recent_cpu ();
-        }
-      if (ticks % 4 == 0)
-        {
-          all_threads_priority ();    // It is also recalculated once every fourth clock tick, for every thread
-        }
-      }
+    if (cur->status == THREAD_RUNNING)
+    {
+      cur->recent_cpu = ADD_FP_INT (cur->recent_cpu, 1);
+    }
+    if (ticks % TIMER_FREQ == 0)    //el recent_cpu se tiene que calcular justo en este momento
+    {
+      calculate_load_avg ();      
+      all_threads_recent_cpu ();
+    }
+    if (ticks % 4 == 0)
+    {
+      all_threads_priority ();    // It is also recalculated once every fourth clock tick, for every thread
+    }
+  }
 
       
       // struct frame_entry *frame;

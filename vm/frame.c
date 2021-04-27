@@ -10,7 +10,7 @@
 struct frame_entry *lookup_frame(void *frame); 
 
 void 
-frame_init(void)
+frame_init()
 {
     list_init(&frame_table);
 }
