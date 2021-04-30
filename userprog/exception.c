@@ -1,5 +1,6 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
+#include "devices/timer.h"
 #include <stdio.h>
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
@@ -132,7 +133,7 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
-
+   struct thread *cur = thread_current();
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
      data.  It is not necessarily the address of the instruction
@@ -162,23 +163,36 @@ page_fault (struct intr_frame *f)
    }
 
    /* fault address is from kernel address space. */
-   if(!is_user_vaddr(fault_addr))
+   if(!is_user_vaddr(fault_addr)){
       exit(-1);
+   }
 
-   const struct spage *page = NULL;
-   if (page == NULL && (f->esp - 32)  <= fault_addr && (void*)(PHYS_BASE - fault_addr) <= (void*)0x80408000)
+   struct spage_entry *page = lookup_page(cur, pg_round_down(fault_addr));
+
+   if (page != NULL && !page->loaded)
+   {
+      switch (page->type)
+      {
+      case EXECUTABLE:
+         load_file_page(page);
+         return;
+      case PAGE: 
+         break;
+      }
+   }else if (page == NULL && (f->esp - 32)  <= fault_addr && (void*)(PHYS_BASE - fault_addr) <= (void*)0x80408000){
       stack_growth(fault_addr);
-   else{
+   }else{
       /*
          If a USER fault address got to this point, means this access was trying to access the stack but failed to pass the growth stack assertions. 
-      */
-      if (is_user_vaddr(fault_addr))
+      // */
+      if (is_user_vaddr(fault_addr)){
          exit(-1);    
+      }
       
       
-      /* To implement virtual memory, delete the rest of the function
-         body, and replace it with code that brings in the page to
-         which fault_addr refers. */
+      // /* To implement virtual memory, delete the rest of the function
+      //    body, and replace it with code that brings in the page to
+      //    which fault_addr refers. */
 
       printf ("Page fault at %p: %s error %s page in %s context.\n",
                fault_addr,

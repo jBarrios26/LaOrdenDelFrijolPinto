@@ -3,6 +3,7 @@
 
 #include <hash.h>
 #include "filesys/off_t.h"
+#include "threads/thread.h"
 /*
     Save all the data related to the process executable file. This data is needed to 
     implement lazy loading, this way we can take this data and used it to load it when is needed. 
@@ -52,6 +53,11 @@ struct spage_entry
 
 bool get_page(void* upage, bool writable);
 bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, void* upage);
+
+
+bool load_file_page(struct spage_entry *page);
+
+struct spage_entry *lookup_page(struct thread *owner ,void *upage); 
 void destroy_SPtable(struct hash *table);
 
 #endif

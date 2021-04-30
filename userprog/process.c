@@ -52,15 +52,15 @@ static unsigned
 sptable_hash(const struct hash_elem *elem_, void *aux UNUSED)
 {
   const struct spage_entry *spage = hash_entry(elem_, struct spage_entry, elem);
-  return hash_bytes(spage->upage, sizeof(spage->upage)); 
+  return hash_bytes(&spage->upage, sizeof(spage->upage)); 
 }
 
 static bool
-sptable_hash_less (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
+sptable_hash_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED)
 {
-  const struct spage_entry *a_ = hash_entry(a, struct spage_entry, elem);
-  const struct spage_entry *b_ = hash_entry(b, struct spage_entry, elem);
-  return a_->upage < b_->upage;
+  const struct spage_entry *a = hash_entry(a_, struct spage_entry, elem);
+  const struct spage_entry *b = hash_entry(b_, struct spage_entry, elem);
+  return a->upage < b->upage;
 }
 
 
@@ -222,6 +222,7 @@ process_wait (tid_t child_tid)
       cond_wait(&cur->wait_cond, &cur->wait_lock);
     }
   lock_release(&cur->wait_lock);
+  child_control->parent_waited = true;
   return child_control->status;
 }
 
@@ -439,7 +440,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable, false))
+                                 read_bytes, zero_bytes, writable, true))
                 goto done;
             }
           else
@@ -570,8 +571,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
             return false;
           }
       }else{
-        printf("Lazy Loading\n");
-        return false;
+        if (!get_file_page(file, ofs, page_read_bytes, page_zero_bytes, writable, upage))
+          return false;
+        ofs += page_read_bytes;
       }
       /* Advance. */
       read_bytes -= page_read_bytes;
