@@ -23,6 +23,9 @@
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 
+static mapid_t mmap (int, void *);
+static void munmap (mapid_t);
+
 static void syscall_handler (struct intr_frame *);
 static bool verify_pointer(void *pointer); 
 void delete_children(struct hash_elem *elem, void *aux);
@@ -531,4 +534,16 @@ delete_children(struct hash_elem *elem, void *aux UNUSED)
 {
   struct children_process *child = hash_entry(elem, struct children_process, elem);
   free(child);
+}
+
+mapid_t
+mmap (int fd, void *addr)
+{
+  return 0;
+}
+
+void
+munmap (mapid_t mapping)
+{
+  
 }
