@@ -77,10 +77,15 @@ syscall_handler (struct intr_frame *f UNUSED)
   int tid;
   char* file_name;
   
+  // User Program
   int fd;
   unsigned position;
   unsigned size;
   void* buffer;
+
+  // Virtual Memory
+  void* addr;
+  int mapping;
 
   if (!verify_pointer(f->esp))
   {
@@ -228,6 +233,30 @@ syscall_handler (struct intr_frame *f UNUSED)
       
       fd = *((int*)f->esp + 1); 
       close(fd);
+      break;
+
+    // *************************************************************************************************************************************************
+    case SYS_MMAP:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+      
+      if (!verify_pointer((int*)f->esp + 2))
+        exit(-1);
+
+      fd = *((int*)f->esp + 1);
+      addr = *((int*)f->esp + 2);
+
+      f->eax = mmap (fd, addr);
+      break;
+
+    // *************************************************************************************************************************************************
+    case SYS_MUNMAP:
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+      
+      mapping = *((int*)f->esp + 1);
+      
+      munmap(mapping);
       break;
   }
 }
