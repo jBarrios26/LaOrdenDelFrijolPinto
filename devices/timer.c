@@ -194,16 +194,16 @@ timer_interrupt (struct intr_frame *args UNUSED)
   }
 
       
-         struct hash_elem *iter = list_begin(&file);
-      while (iter != list_end(&file))
-      {
-        struct frame_entry *entry_frame = list_entry(iter, struct frame_entry, elem);
-        frame = lookup_frame(frame);
-        if(pagedir_is_accessed(frame->upage)){
-          pagedir_set_accessed();
-        }
-        iter = list_next(iter);
-      }
+        // struct hash_elem *iter = list_begin(&file);
+      //while (iter != list_end(&file))
+      //{
+        //struct frame_entry *entry_frame = list_entry(iter, struct frame_entry, elem);
+        //frame = lookup_frame(frame);
+        //if(pagedir_is_accessed(frame->upage)){
+          //pagedir_set_accessed();
+       // }
+        //iter = list_next(iter);
+     // }
        
 }
 
