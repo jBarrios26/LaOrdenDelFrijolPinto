@@ -9,6 +9,7 @@
     "features.h": "c",
     "stddef.h": "c",
     "spage.h": "c",
-    "palloc.h": "c"
+    "palloc.h": "c",
+    "block.h": "c"
   }
 }

@@ -4,14 +4,14 @@
 #include "bitmap.h"
 #include "devices/block.h"
 
-struct bitmap swap_table; 
-static struct block* global_swap_block; 
+struct bitmap *swap_table; 
+static struct block *global_swap_block; 
 
 void swap_init(void); 
-bool swap_read(void *frame, size_t idx);
-bool swap_write(void *frame, size_t idx);
+void swap_read(void *frame, size_t idx);
+void swap_write(void *frame, size_t idx);
 
-bool swap_allocate(void *frame);
-bool swap_deallocate(void *frame);
+size_t swap_allocate(void *frame);
+void swap_deallocate(void *frame, size_t idx);
 
 #endif
