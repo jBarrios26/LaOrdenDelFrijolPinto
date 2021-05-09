@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 struct list frame_table; 
-struct lock frame_lock; 
+struct lock lock_frame; 
 
 /*
     The frame table contains the frame entries that all of the processes 
@@ -22,7 +22,7 @@ struct frame_entry
     void* upage;
 
     struct thread* owner; 
-
+    uint64_t accessed_time; 
     // Save if it is data, file or executable. 
     // Save if it is pinned.
 

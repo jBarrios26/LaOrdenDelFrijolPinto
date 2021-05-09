@@ -47,7 +47,6 @@ struct spage_entry
 
     struct file_page *file;
 
-    uint64_t access_time; 
     struct hash_elem elem; 
 };
 

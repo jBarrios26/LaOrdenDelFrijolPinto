@@ -3,16 +3,19 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 
-struct frame_entry *lookup_frame(void *frame); 
+#include "devices/timer.h"
 
+struct frame_entry *lookup_frame(void *frame); 
 void 
 frame_init()
 {
     list_init(&frame_table);
+    lock_init(&lock_frame);
 }
 
 
@@ -30,7 +33,11 @@ create_frame()
         
         new_frame->frame = frame; 
         new_frame->owner = thread_current();
-        list_push_back(&frame_table, &new_frame->elem);
+        new_frame->accessed_time = timer_ticks();
+
+        lock_acquire(&lock_frame);
+            list_push_back(&frame_table, &new_frame->elem);
+        lock_release(&lock_frame);
     }
     return frame;
 }
@@ -56,8 +63,10 @@ destroy_frame(void *frame)
 {
     struct frame_entry *fte = lookup_frame(frame); 
     if (fte)
-    {
-        list_remove(&fte->elem); 
+    { 
+        lock_acquire(&lock_frame);
+            list_remove(&fte->elem); 
+        lock_release(&lock_frame);
         palloc_free_page(fte->frame); 
         free(fte); 
     }

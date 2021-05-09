@@ -7,6 +7,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "userprog/pagedir.h"
 
 #include "vm/spage.h"
 #include "vm/frame.h"
@@ -145,6 +146,18 @@ page_fault (struct intr_frame *f)
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
+   uint64_t ticks = timer_ticks();
+   for (struct list_elem *iter = list_begin(&frame_table); iter != list_end(&frame_table); iter = list_next(iter))
+   {
+     struct frame_entry *frame = list_entry(iter, struct frame_entry, elem);
+     if (pagedir_is_accessed(frame->owner->pagedir, frame->upage))
+     {
+       frame->accessed_time = ticks;
+       pagedir_set_accessed(frame->owner->pagedir, frame->upage, false);
+     }
+   }   
+
+
   intr_enable ();
   /* Count page faults. */
   page_fault_cnt++;

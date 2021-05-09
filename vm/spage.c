@@ -42,7 +42,7 @@ get_page(void *upage, bool writable)
     page->type = PAGE; 
     page->accessed = false;
     page->file = NULL;
-    page->access_time = timer_ticks();
+    
 
     hash_insert(&cur->sup_table, &page->elem); 
 
@@ -66,7 +66,7 @@ bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t z
     page->type = EXECUTABLE;
     page->accessed = false;
     page->file = NULL;
-    page->access_time = timer_ticks();
+
 
     struct file_page *file_entry = (struct file_page*) malloc(sizeof(struct file_page));
     if (!file_entry)
@@ -112,8 +112,7 @@ bool load_file_page(struct spage_entry *page)
         return false;
     }
     
-    page->loaded = false; 
-    page->access_time = timer_ticks();
+    page->loaded = true; 
     return true; 
 }
 

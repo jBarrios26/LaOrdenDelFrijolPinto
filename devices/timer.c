@@ -8,6 +8,8 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/fixed-point.h"
+#include "threads/palloc.h"
+#include "userprog/pagedir.h"
 #include "vm/frame.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
@@ -193,12 +195,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }
   }
 
-      
-      // struct frame_entry *frame;
-      //   frame = lookup_frame(frame);
-      //  if(pagedir_is_accessed(frame->upage)){
-      //   pagedir_set_accessed();
-      // }
+   
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
