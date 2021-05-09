@@ -63,6 +63,14 @@ sptable_hash_less (const struct hash_elem *a_, const struct hash_elem *b_, void 
   return a->upage < b->upage;
 }
 
+static void 
+sptable_destroy(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct spage_entry *page = hash_entry(elem, struct spage_entry, elem);
+  if (page->file)
+    free(page->file);
+  free(page);
+}
 
 
 /* Starts a new thread running a user program loaded from
@@ -235,6 +243,20 @@ process_exit (void)
   uint32_t *pd;
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+
+  for (struct list_elem *iter = list_begin(&frame_table); iter != list_end(&frame_table); )
+  {
+    struct frame_entry *fte = list_entry(iter, struct frame_entry, elem); 
+    if (cur == fte->owner){
+      iter = list_next(iter); 
+      list_remove(&fte->elem); 
+      free(fte);
+    }else 
+      iter = list_next(iter);
+    
+  }
+
+  hash_destroy(&cur->sup_table, sptable_destroy); 
 
   pd = cur->pagedir;
   if (pd != NULL)

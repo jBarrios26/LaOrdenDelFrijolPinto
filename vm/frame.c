@@ -10,12 +10,17 @@
 
 #include "devices/timer.h"
 
+
+struct frame_entry *lookup_eviction_victim();
 struct frame_entry *lookup_frame(void *frame); 
+
+
 void 
 frame_init()
 {
     list_init(&frame_table);
     lock_init(&lock_frame);
+    lock_init(&evict_lock);
 }
 
 
@@ -38,6 +43,8 @@ create_frame()
         lock_acquire(&lock_frame);
             list_push_back(&frame_table, &new_frame->elem);
         lock_release(&lock_frame);
+    }else {
+        frame = evict_frame();
     }
     return frame;
 }
@@ -85,4 +92,22 @@ struct frame_entry
         iter = list_next(iter); 
     }
     return NULL; 
+}
+
+
+void *evict_frame(void)
+{
+
+}
+
+struct frame_entry *lookup_eviction_victim(void)
+{
+    struct frame_entry *victim; 
+    uint64_t ticks = timer_ticks();
+
+    struct list_elem *iter = list_begin(&frame_table); 
+    for (; iter != list_end(&frame_table); iter = list_next(iter))
+    {
+        struct frame_entry *candidate = list_entry(iter, struct frame_entry, elem);
+    }
 }

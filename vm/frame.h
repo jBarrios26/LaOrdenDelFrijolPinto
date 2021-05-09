@@ -9,6 +9,7 @@
 
 struct list frame_table; 
 struct lock lock_frame; 
+struct lock evict_lock;
 
 /*
     The frame table contains the frame entries that all of the processes 
@@ -34,7 +35,7 @@ void frame_init(void);
 void* create_frame(void); 
 bool install_frame(void *frame, void* upage, bool writable);
 void destroy_frame(void *frame); 
-uint32_t* evict_frame(void);
+void* evict_frame(void);
 
 
 #endif

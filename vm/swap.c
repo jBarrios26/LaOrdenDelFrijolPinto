@@ -13,7 +13,7 @@
 */
 void swap_init(void)
 {
-    global_swap_block = block_get_by_name(BLOCK_SWAP);
+    global_swap_block = block_get_role(BLOCK_SWAP);
     if (global_swap_block == NULL)
          PANIC("ERROR! CANNOT CREATE SWAP TABLE");
 
@@ -49,6 +49,6 @@ size_t swap_allocate(void *frame)
 /* Reads a page from swap file and free its sectors. */
 void swap_deallocate(void *frame, size_t idx)
 {
-    bitmap_scan_and_flip(global_swap_block, idx, BLOCKS_PER_PAGE, true);
+    bitmap_scan_and_flip(swap_table, idx, BLOCKS_PER_PAGE, true);
     swap_read(frame, idx); 
 }
