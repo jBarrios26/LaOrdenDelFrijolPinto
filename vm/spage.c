@@ -7,6 +7,7 @@
 
 #include "vm/spage.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 
 #include "threads/thread.h"
 #include "threads/malloc.h"
@@ -38,11 +39,11 @@ get_page(void *upage, bool writable)
     
     page->upage = upage; 
     page->loaded = true;
-    page->dirty = false; 
+    page->writable = writable; 
     page->type = PAGE; 
-    page->accessed = false;
     page->file = NULL;
-    
+    page->swap_id = -1; 
+    page->in_swap = false; 
 
     hash_insert(&cur->sup_table, &page->elem); 
 
@@ -61,11 +62,12 @@ bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t z
         return false;
     
     page->upage = upage; 
+    page->writable = writable;
     page->loaded = false;
-    page->dirty = false; 
     page->type = EXECUTABLE;
-    page->accessed = false;
     page->file = NULL;
+    page->swap_id = -1; 
+    page->in_swap = false; 
 
 
     struct file_page *file_entry = (struct file_page*) malloc(sizeof(struct file_page));
@@ -87,6 +89,9 @@ bool load_file_page(struct spage_entry *page)
 {
     ASSERT(page->type == EXECUTABLE);
     ASSERT(page->file != NULL); // BRUH este assert me ahorro muchas horas mas haha .
+    
+    if (page->in_swap)
+        return load_page(page);
 
     struct file_page *file_ = page->file;
 
@@ -115,6 +120,35 @@ bool load_file_page(struct spage_entry *page)
     page->loaded = true; 
     return true; 
 }
+
+bool load_page(struct spage_entry *page)
+{
+    ASSERT(page->type == PAGE || (page->type == EXECUTABLE && page->writable));
+
+    /* Create a new frame for this page. If  memory is full, this will evicted a currently installed frame */
+    void *kpage = create_frame();
+    if (!kpage)
+        PANIC("ERROR! RUN OUT OF MEMORY"); 
+    /* Install the frame on page directory */
+    if (!install_frame(kpage, page->upage, page->writable)){
+        destroy_frame(kpage); 
+        return false; 
+    }
+    
+    /* Load page content from swap */
+    if (page->in_swap)
+        swap_deallocate(page->upage, page->swap_id);
+
+
+    /* Update page variables */
+    page->in_swap = false; 
+    page->loaded = true; 
+    page->swap_id = -1;
+
+    return true;
+}
+
+
 
 struct spage_entry *lookup_page(struct thread *owner ,void *upage){
 

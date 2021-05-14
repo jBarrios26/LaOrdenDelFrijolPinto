@@ -40,8 +40,10 @@ struct spage_entry
     void* upage;
 
     bool loaded;
-    bool dirty; 
-    bool accessed; 
+    bool writable;
+    bool in_swap; 
+
+    size_t swap_id; 
 
     Page_Type type; 
 
@@ -55,6 +57,7 @@ bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t z
 
 
 bool load_file_page(struct spage_entry *page);
+bool load_page(struct spage_entry *page);
 
 struct spage_entry *lookup_page(struct thread *owner ,void *upage); 
 void destroy_SPtable(struct hash *table);

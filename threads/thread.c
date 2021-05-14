@@ -17,6 +17,7 @@
 #include "userprog/process.h"
 #endif
 #include "vm/frame.h"
+#include "vm/swap.h"
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -106,6 +107,7 @@ thread_init (void)
   list_init (&wait_sleeping_list);
 
   frame_init();
+  
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -652,7 +654,7 @@ priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void
   const struct thread *a = list_entry (a_, struct thread, elem);
   const struct thread *b = list_entry (b_, struct thread, elem);
 
-  return a->priority <= b->priority;
+  return a->priority < b->priority;
 }
 /* Idle thread.  Executes when no other thread is ready to run.
    The idle thread is initially put on the ready list by
@@ -755,6 +757,11 @@ init_thread (struct thread *t, const char *name, int priority)
   // cond_init(&t->msg_parent);
   lock_init(&t->wait_lock);
   cond_init(&t->wait_cond);
+
+  t->esp = NULL; 
+  t->fault_addr = NULL; 
+  t->on_syscall = false;
+
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   

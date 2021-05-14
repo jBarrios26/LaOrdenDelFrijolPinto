@@ -69,6 +69,7 @@ syscall_init (void)
 void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+  struct thread *cur = thread_current(); 
   int status;
   char* cmd_name;
   int tid;
@@ -83,6 +84,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
     exit(-1);
   }
+
+  cur->esp = f->esp;
+  cur->on_syscall = true;
 
   switch (*(int*)f->esp){
     case SYS_HALT:
@@ -128,8 +132,9 @@ syscall_handler (struct intr_frame *f UNUSED)
       buffer = (char*)(*((int*)f->esp + 2));
       size = (*((int*)f->esp + 3));
 
-      if (!verify_pointer(buffer))
+      if (!is_user_vaddr(buffer) || buffer == NULL){
         exit(-1);
+      }
       
       f->eax = read(fd, buffer, size);
       break;
@@ -146,8 +151,9 @@ syscall_handler (struct intr_frame *f UNUSED)
     // *************************************************************************************************************************************************
     case SYS_OPEN:
       file_name = (void*)(*((int*)f->esp + 1)); 
-      if (!verify_pointer(file_name))
+      if (!verify_pointer(file_name)){
         exit(-1);
+      }
       
       f->eax = open(file_name);
       break;
@@ -227,6 +233,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       close(fd);
       break;
   }
+
+  cur->on_syscall = false; 
+  cur->esp = NULL; 
+  cur->fault_addr = NULL;
 }
 
 
@@ -429,6 +439,9 @@ read(int fd, char* buffer, unsigned size)
 {
   int read_size = -1;
 
+  struct thread *cur = thread_current(); 
+  cur->fault_addr = buffer;
+
   if (fd){    
     struct open_file *opened_file = get_file(fd);
     if (opened_file != NULL){
@@ -450,6 +463,10 @@ read(int fd, char* buffer, unsigned size)
 int 
 write (int fd, void* buffer, unsigned size)
 {
+
+  struct thread *cur = thread_current(); 
+  cur->fault_addr = buffer;
+  
   if (fd == STDIN_FILENO){
     return 0;
   }

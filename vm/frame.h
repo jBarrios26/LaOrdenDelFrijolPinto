@@ -35,7 +35,7 @@ void frame_init(void);
 void* create_frame(void); 
 bool install_frame(void *frame, void* upage, bool writable);
 void destroy_frame(void *frame); 
-void* evict_frame(void);
+struct frame_entry* evict_frame(void);
 
 
 #endif

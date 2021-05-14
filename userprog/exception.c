@@ -165,6 +165,9 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+  fault_addr = (cur->on_syscall) ? cur->fault_addr : fault_addr;
+  
+  void *esp = (cur->on_syscall) ? cur->esp : f->esp;
 
    /* Write to ReadOnly page. */ 
    if (!not_present)
@@ -180,6 +183,8 @@ page_fault (struct intr_frame *f)
       exit(-1);
    }
 
+ 
+
    struct spage_entry *page = lookup_page(cur, pg_round_down(fault_addr));
 
    if (page != NULL && !page->loaded)
@@ -189,10 +194,11 @@ page_fault (struct intr_frame *f)
       case EXECUTABLE:
          load_file_page(page);
          return;
-      case PAGE: 
+      case PAGE:
+         load_page(page);
          break;
       }
-   }else if (page == NULL && (f->esp - 32)  <= fault_addr && (void*)(PHYS_BASE - fault_addr) <= (void*)0x80408000){
+   }else if (page == NULL && (esp - 32)  <= fault_addr && (void*)(PHYS_BASE - fault_addr) <= (void*)0x80408000){
       stack_growth(fault_addr);
    }else{
       /*

@@ -1,17 +1,23 @@
 #include "vm/frame.h"
+#include "vm/swap.h"
+#include "vm/spage.h"
 
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/synch.h"
+#include "threads/vaddr.h"
 
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 
 #include "devices/timer.h"
+#include "stdio.h"
+#include "debug.h"
+#include "string.h"
 
 
-struct frame_entry *lookup_eviction_victim();
+struct frame_entry *lookup_eviction_victim(void);
 struct frame_entry *lookup_frame(void *frame); 
 
 
@@ -43,8 +49,16 @@ create_frame()
         lock_acquire(&lock_frame);
             list_push_back(&frame_table, &new_frame->elem);
         lock_release(&lock_frame);
-    }else {
-        frame = evict_frame();
+    }else { 
+        struct frame_entry *new_frame = evict_frame(); 
+        new_frame->owner = thread_current();
+        new_frame->accessed_time = timer_ticks(); 
+        frame = new_frame->frame;
+        
+        lock_acquire(&lock_frame);
+            list_push_back(&frame_table, &new_frame->elem);
+        lock_release(&lock_frame);
+
     }
     return frame;
 }
@@ -84,30 +98,68 @@ destroy_frame(void *frame)
 struct frame_entry 
 *lookup_frame(void *frame)
 {
+    lock_acquire(&lock_frame);
     struct list_elem *iter = list_begin(&frame_table); 
     while (iter != list_end(&frame_table)){
         struct frame_entry *fte = list_entry(iter, struct frame_entry, elem); 
-        if (fte->frame == frame)
+        if (fte->frame == frame){
+            lock_release(&lock_frame); 
             return fte; 
+        }
         iter = list_next(iter); 
     }
+    lock_release(&lock_frame); 
     return NULL; 
 }
 
 
-void *evict_frame(void)
+struct frame_entry *evict_frame(void)
 {
+    struct frame_entry *frame;
+    lock_acquire(&evict_lock);
+        frame = lookup_eviction_victim(); 
+        if (!frame)
+            PANIC("ERROR! NO FRAME TO EVICT");
+        list_remove(&frame->elem); 
+    lock_release(&evict_lock);
 
+    struct spage_entry *page = lookup_page(frame->owner, frame->upage);
+    size_t idx = -1; 
+    bool in_swap = false;
+    if (pagedir_is_dirty(frame->owner->pagedir, page->upage)){
+        idx = swap_allocate(frame->upage);
+        in_swap = true;
+    }
+
+    memset(frame->frame, 0, PGSIZE);
+
+    page->swap_id = idx; 
+    page->in_swap = in_swap; 
+    page->loaded = false;
+
+    pagedir_clear_page(frame->owner->pagedir, frame->upage);
+    return frame;
 }
 
-struct frame_entry *lookup_eviction_victim(void)
+/*  Searches a frame to evict. Chooses the frame with the lowest accessed_time (based on LRU) */
+struct frame_entry*
+lookup_eviction_victim(void)
 {
-    struct frame_entry *victim; 
+    struct frame_entry *victim = NULL; 
     uint64_t ticks = timer_ticks();
 
     struct list_elem *iter = list_begin(&frame_table); 
     for (; iter != list_end(&frame_table); iter = list_next(iter))
     {
         struct frame_entry *candidate = list_entry(iter, struct frame_entry, elem);
+        if (!victim){
+            victim = candidate; 
+            continue;
+        }
+
+        if ( (ticks - victim->accessed_time) < (ticks -  candidate->accessed_time))
+            victim = candidate;
     }
+
+    return victim;
 }
