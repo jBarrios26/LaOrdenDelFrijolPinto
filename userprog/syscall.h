@@ -1,6 +1,7 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 typedef int pid_t;
+typedef mapid_t;
 
 // User Program
 void syscall_init (void);

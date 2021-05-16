@@ -568,7 +568,20 @@ delete_children(struct hash_elem *elem, void *aux UNUSED)
 mapid_t
 mmap (int fd, void *addr)
 {
-  return 0;
+  /*mmap may fail if the file open as fd has a length of zero bytes. 
+    It must fail if addr is not page-aligned or 
+    if the range of pages mapped overlaps any existing set of mapped pages, 
+    including the stack or pages mapped at executable load time.
+    If addr is 0.
+  */
+  size_t read_bytes;
+  size_t zero_bytes;
+
+  //check if fd and addr are valid
+  
+  if(fd == 0 || fd == 1 || addr == NULL) 
+    return -1;
+  
 }
 
 void
