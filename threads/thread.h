@@ -125,7 +125,7 @@ struct thread
 
    /*VM Variables*/
    struct hash sup_table; 
-   uint32_t *esp; 
+   void *esp; 
    void *fault_addr;
    bool on_syscall; 
 

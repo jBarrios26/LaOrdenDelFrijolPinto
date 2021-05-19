@@ -10,6 +10,8 @@
     "stddef.h": "c",
     "spage.h": "c",
     "palloc.h": "c",
-    "block.h": "c"
+    "block.h": "c",
+    "inttypes.h": "c",
+    "stdio.h": "c"
   }
 }

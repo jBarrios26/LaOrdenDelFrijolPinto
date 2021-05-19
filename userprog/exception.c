@@ -17,7 +17,7 @@ static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
-bool stack_growth(void *fault_address);
+
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -186,7 +186,6 @@ page_fault (struct intr_frame *f)
  
 
    struct spage_entry *page = lookup_page(cur, pg_round_down(fault_addr));
-
    if (page != NULL && !page->loaded)
    {
       switch (page->type)
@@ -234,6 +233,7 @@ bool stack_growth(void *fault_address)
          return false;
       }
       get_page(upage, true); 
+      
       return true;
    }else 
       return false; 

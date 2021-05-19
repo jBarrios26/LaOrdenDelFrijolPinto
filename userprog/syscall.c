@@ -1,6 +1,7 @@
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "userprog/syscall.h"
+#include "userprog/exception.h"
 
 #include "lib/kernel/stdio.h"
 #include "lib/string.h"
@@ -20,6 +21,8 @@
 #include "devices/timer.h"
 #include "devices/input.h"
 
+#include "vm/spage.h"
+
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
 
@@ -29,6 +32,10 @@ void delete_children(struct hash_elem *elem, void *aux);
 
 void delete_parent_from_child(struct hash_elem *elem, void *aux);
 void print_children(struct hash_elem *elem, void *aux);
+
+static void  preload(void *buffer, size_t size); 
+int calc_pages(void *upage, size_t size);
+
 static struct lock file_system_lock;
 
 
@@ -122,11 +129,15 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     // *************************************************************************************************************************************************
     case SYS_READ:
-      if (!verify_pointer((int*)f->esp + 1))
+      if (!verify_pointer((int*)f->esp + 1)){
         exit(-1);
+      }
 
-      if (!verify_pointer((int*)f->esp + 3))
+      if (!verify_pointer((int*)f->esp + 3)){
         exit(-1);
+      }
+
+      
 
       fd = (*((int*)f->esp + 1)); 
       buffer = (char*)(*((int*)f->esp + 2));
@@ -442,6 +453,7 @@ read(int fd, char* buffer, unsigned size)
   struct thread *cur = thread_current(); 
   cur->fault_addr = buffer;
 
+  preload(buffer, size);
   if (fd){    
     struct open_file *opened_file = get_file(fd);
     if (opened_file != NULL){
@@ -466,7 +478,7 @@ write (int fd, void* buffer, unsigned size)
 
   struct thread *cur = thread_current(); 
   cur->fault_addr = buffer;
-  
+  preload(buffer, size);
   if (fd == STDIN_FILENO){
     return 0;
   }
@@ -548,4 +560,78 @@ delete_children(struct hash_elem *elem, void *aux UNUSED)
 {
   struct children_process *child = hash_entry(elem, struct children_process, elem);
   free(child);
+}
+
+
+int calc_pages(void *upage, size_t size)
+{
+  size_t allocated = 0;
+  size_t last_increment = 0;
+  int pages = 0;
+  while (allocated < size )
+  {
+    if (allocated + PGSIZE > size){
+      allocated += size - allocated;
+      last_increment = size - allocated; 
+      upage += last_increment;
+    }else{
+      allocated += PGSIZE; 
+      last_increment = PGSIZE; 
+      upage += last_increment;
+    }
+    pages++; 
+  }
+
+  return pages + 1 ; 
+  
+}
+/*
+  Preload pages for read/write syscalls. When preloading pages there are two cases: 
+   1. All of buffer pages are already created. But they may be in swap, loaded or in file. 
+   2. Pages need to be created with stack growth.
+*/
+static void 
+preload(void *fault_address, size_t size)
+{
+  ASSERT(is_user_vaddr(fault_address))
+
+  struct thread *cur = thread_current(); 
+  struct spage_entry *page = NULL;
+  void *buffer = fault_address;
+  int i = 0;
+  size_t allocated = 0;
+  int cant_pages =  calc_pages(fault_address, size);
+  while (i != cant_pages)
+  {
+    size_t page_size = (allocated + PGSIZE > size)? size - allocated: PGSIZE; 
+    allocated += page_size; 
+    /* If page is already loaded, then continue to the next iteration because there is no point in stack growth or page reclamation */
+    if (pagedir_get_page(cur->pagedir, buffer) != NULL){
+      buffer += page_size;
+      i++; 
+      continue; 
+    }
+
+    /* Search the page in supplementary page table. If we found the page and is not loaded then load the page from file or swap. If we don't find 
+    the page then need to grow the stack. */
+    page= lookup_page(cur, pg_round_down(buffer));
+    if (page != NULL && !page->loaded){
+      switch (page->type)
+      {
+      case EXECUTABLE:
+         load_file_page(page);
+         return;
+      case PAGE:
+         load_page(page);
+         break;
+      }
+    }else if (page == NULL && (cur->esp - 32)  <= buffer){
+      bool success = stack_growth(buffer);
+    }else{
+      exit(-1);
+    }
+
+    buffer += page_size;
+    i++; 
+  }
 }

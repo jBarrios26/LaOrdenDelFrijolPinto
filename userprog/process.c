@@ -135,7 +135,11 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  
+  #ifdef VM
   hash_init(&cur->sup_table, sptable_hash, sptable_hash_less, NULL);
+  #endif
+  
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
@@ -244,6 +248,7 @@ process_exit (void)
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
 
+  #ifdef VM
   for (struct list_elem *iter = list_begin(&frame_table); iter != list_end(&frame_table); )
   {
     struct frame_entry *fte = list_entry(iter, struct frame_entry, elem); 
@@ -257,7 +262,7 @@ process_exit (void)
   }
 
   hash_destroy(&cur->sup_table, sptable_destroy); 
-
+  #endif
   pd = cur->pagedir;
   if (pd != NULL)
     {
