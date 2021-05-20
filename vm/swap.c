@@ -64,27 +64,3 @@ swap_deallocate(void *frame, size_t idx)
 }
 
 
-/*
-bool stack_growth(void *fault_address)
-{
-   void *upage = pg_round_down(fault_address); 
-   uint32_t* frame = create_frame(); 
-   if (frame != NULL){
-      bool success = install_frame(frame, upage, true); 
-      if (!success){
-         destroy_frame(frame);
-         return false;
-      }
-      get_page(upage, true); 
-      return true;
-   }else 
-      return false; 
-
-        printf ("Page fault at %p: %s error %s page in %s context.\n",
-               fault_addr,
-               not_present ? "not present" : "rights violation",
-               write ? "writing" : "reading",
-               user ? "user" : "kernel");
-      kill (f);
-}
-*/
