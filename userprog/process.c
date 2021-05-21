@@ -24,8 +24,10 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 
+#ifdef VM
 #include "vm/spage.h"
 #include "vm/frame.h"
+#endif
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -149,9 +151,7 @@ start_process (void *file_name_)
   /* Need to check if load was successful and signal the parent thread.
      Need to use the synchronization variables defined on the parent thread.
   */
-  #ifdef VM
   hash_init(&cur->children, children_hash, childres_hash_less, NULL);
-  #endif
   cur->children_init = true;
   struct thread* parent = get_thread(cur->parent);
   // struct children_process child;

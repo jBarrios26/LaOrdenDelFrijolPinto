@@ -21,7 +21,9 @@
 #include "devices/timer.h"
 #include "devices/input.h"
 
+#ifdef VM
 #include "vm/spage.h"
+#endif
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1

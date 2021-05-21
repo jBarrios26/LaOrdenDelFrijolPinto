@@ -1,6 +1,8 @@
+#ifdef vm
 #include "vm/frame.h"
 #include "vm/swap.h"
 #include "vm/spage.h"
+#endif
 
 #include "threads/malloc.h"
 #include "threads/palloc.h"
@@ -147,7 +149,7 @@ lookup_eviction_victim(void)
 {
     struct frame_entry *victim = NULL; 
     uint64_t ticks = timer_ticks();
-
+    #ifdef VM
     struct list_elem *iter = list_begin(&frame_table); 
     for (; iter != list_end(&frame_table); iter = list_next(iter))
     {
@@ -160,6 +162,6 @@ lookup_eviction_victim(void)
         if ( (ticks - victim->accessed_time) < (ticks -  candidate->accessed_time))
             victim = candidate;
     }
-
+    #endif 
     return victim;
 }
