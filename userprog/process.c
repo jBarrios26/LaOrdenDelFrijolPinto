@@ -149,7 +149,9 @@ start_process (void *file_name_)
   /* Need to check if load was successful and signal the parent thread.
      Need to use the synchronization variables defined on the parent thread.
   */
+  #ifdef VM
   hash_init(&cur->children, children_hash, childres_hash_less, NULL);
+  #endif
   cur->children_init = true;
   struct thread* parent = get_thread(cur->parent);
   // struct children_process child;
@@ -620,61 +622,122 @@ setup_stack (void **esp, char *args, char *name)
   // char *save_ptr;
   // int start_stack = 0;
   bool success = false;
-  kpage = create_frame(); 
-  if (kpage != NULL)
+  bool vm = false;
+  #ifdef
+  vm = true;
+  #endif
+  if(vm)
   {
-    success = install_frame(kpage, ((uint8_t*)PHYS_BASE) - PGSIZE , true );
-    if (success)
-    { 
-      get_page(((uint8_t*)PHYS_BASE - PGSIZE), true);
-      *esp = PHYS_BASE;
-      /* SETUP args in stack*/
-      char *reverse, *aux = "";
-      reverse = palloc_get_page(PAL_USER | PAL_ZERO);
-      aux = palloc_get_page(PAL_USER |PAL_ZERO);
+    kpage = create_frame();
+    if (kpage != NULL)
+    {
+      success = install_frame(kpage, ((uint8_t*)PHYS_BASE) - PGSIZE , true );
+      if (success)
+      { 
+        get_page(((uint8_t*)PHYS_BASE - PGSIZE), true);
+        *esp = PHYS_BASE;
+        /* SETUP args in stack*/
+        char *reverse, *aux = "";
+        reverse = palloc_get_page(PAL_USER | PAL_ZERO);
+        aux = palloc_get_page(PAL_USER |PAL_ZERO);
 
-      if (reverse == NULL || aux == NULL){
-        success = false;
-        palloc_free_page(reverse);
+        if (reverse == NULL || aux == NULL){
+          success = false;
+          palloc_free_page(reverse);
+          palloc_free_page(aux);
+          return success;
+        }
+
+        int argc = reverse_args(args, reverse, aux); 
+
+        void *addresses[argc + 1];
+        
+        push_args(reverse, esp, addresses); 
+        
+        argc = push_name(name, esp, addresses, argc); 
+
+        // Align memory.
+        align_mem(esp); 
+
+        // Write argv addresses.
+        *esp -= 4;
+        memset (*esp, 0, 4);
+
+        push_addresses(esp, addresses, argc); 
+
+        // push argv[0] address
+        void *argv0 = *esp;
+        *esp -= sizeof(char**);
+        memcpy(*esp, &argv0, sizeof(char**));
+
+        *esp-=sizeof(argc);
+        memcpy(*esp, &argc, 4);
+
+        *esp -= sizeof(void*);
+        memset(*esp, 0, sizeof(void*));
+
         palloc_free_page(aux);
-        return success;
+        palloc_free_page(reverse);
+      }else{
+        destroy_frame(kpage);
       }
-
-      int argc = reverse_args(args, reverse, aux); 
-
-      void *addresses[argc + 1];
-      
-      push_args(reverse, esp, addresses); 
-      
-      argc = push_name(name, esp, addresses, argc); 
-
-      // Align memory.
-      align_mem(esp); 
-
-      // Write argv addresses.
-      *esp -= 4;
-      memset (*esp, 0, 4);
-
-      push_addresses(esp, addresses, argc); 
-
-      // push argv[0] address
-      void *argv0 = *esp;
-      *esp -= sizeof(char**);
-      memcpy(*esp, &argv0, sizeof(char**));
-
-      *esp-=sizeof(argc);
-      memcpy(*esp, &argc, 4);
-
-      *esp -= sizeof(void*);
-      memset(*esp, 0, sizeof(void*));
-
-      palloc_free_page(aux);
-      palloc_free_page(reverse);
-    }else{
-      destroy_frame(kpage);
     }
-  }
+  }else{
+      kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+        if (kpage != NULL)
+    {
+      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      if (success){
 
+        *esp = PHYS_BASE;
+        /* SETUP args in stack*/
+        char *reverse, *aux = "";
+        reverse = palloc_get_page(PAL_USER | PAL_ZERO);
+        aux = palloc_get_page(PAL_USER |PAL_ZERO);
+
+        if (reverse == NULL || aux == NULL){
+          success = false;
+          palloc_free_page(reverse);
+          palloc_free_page(aux);
+          return success;
+        }
+
+        int argc = reverse_args(args, reverse, aux); 
+
+        void *addresses[argc + 1];
+        
+        push_args(reverse, esp, addresses); 
+        
+        argc = push_name(name, esp, addresses, argc); 
+
+        // Align memory.
+        align_mem(esp); 
+
+        // Write argv addresses.
+        *esp -= 4;
+        memset (*esp, 0, 4);
+
+        push_addresses(esp, addresses, argc); 
+
+        // push argv[0] address
+        void *argv0 = *esp;
+        *esp -= sizeof(char**);
+        memcpy(*esp, &argv0, sizeof(char**));
+
+        *esp-=sizeof(argc);
+        memcpy(*esp, &argc, 4);
+
+        *esp -= sizeof(void*);
+        memset(*esp, 0, sizeof(void*));
+
+        palloc_free_page(aux);
+        palloc_free_page(reverse);
+      }
+      else
+        palloc_free_page (kpage);
+    }
+
+  } 
   return success;
 }
 
