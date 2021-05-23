@@ -1,5 +1,5 @@
 #include "userprog/process.h"
-#include "syscall.h"
+#include "userprog/syscall.h"
 #include <debug.h>
 #include <inttypes.h>
 #include <round.h>
@@ -73,6 +73,30 @@ sptable_destroy(struct hash_elem *elem, void *aux UNUSED)
 }
 
 
+static unsigned
+mmap_hash(const struct hash_elem *elem_, void *aux UNUSED)
+{
+  const struct mmap_file *mmfile = hash_entry(elem_, struct mmap_file, elem);
+  return hash_int(mmfile->mapping);
+}
+
+static bool
+mmap_hash_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED)
+{
+  const struct mmap_file *a = hash_entry(a_, struct mmap_file, elem);
+  const struct mmap_file *b = hash_entry(b_, struct mmap_file, elem);
+  return a->mapping < b->mapping;
+}
+
+static void 
+mmtable_destroy(struct hash_elem *elem, void *aux UNUSED)
+{
+  struct mmap_file *mmfile = hash_entry(elem, struct mmap_file, elem);
+  free(mmfile);
+}
+
+
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -138,6 +162,7 @@ start_process (void *file_name_)
   
   #ifdef VM
   hash_init(&cur->sup_table, sptable_hash, sptable_hash_less, NULL);
+  hash_init(&cur->mm_table, mmap_hash, mmap_hash_less, NULL); 
   #endif
   
   success = load (file_name, &if_.eip, &if_.esp);
@@ -262,6 +287,7 @@ process_exit (void)
   }
 
   hash_destroy(&cur->sup_table, sptable_destroy); 
+  hash_destroy(&cur->mm_table, mmtable_destroy); 
   #endif
   pd = cur->pagedir;
   if (pd != NULL)

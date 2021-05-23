@@ -12,6 +12,12 @@
     "palloc.h": "c",
     "block.h": "c",
     "inttypes.h": "c",
-    "stdio.h": "c"
+    "stdio.h": "c",
+    "vaddr.h": "c",
+    "synch.h": "c",
+    "shutdown.h": "c",
+    "syscall-nr.h": "c",
+    "interrupt.h": "c",
+    "exception.h": "c"
   }
 }

@@ -654,7 +654,7 @@ priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void
   const struct thread *a = list_entry (a_, struct thread, elem);
   const struct thread *b = list_entry (b_, struct thread, elem);
 
-  return a->priority < b->priority;
+  return a->priority <= b->priority;
 }
 /* Idle thread.  Executes when no other thread is ready to run.
    The idle thread is initially put on the ready list by
@@ -761,6 +761,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->esp = NULL; 
   t->fault_addr = NULL; 
   t->on_syscall = false;
+  t->mapid = 0; 
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

@@ -22,6 +22,7 @@ struct frame_entry
     void* frame;
     void* upage;
 
+    bool pinned; 
     struct thread* owner; 
     uint64_t accessed_time; 
     // Save if it is data, file or executable. 
@@ -36,6 +37,7 @@ void* create_frame(void);
 bool install_frame(void *frame, void* upage, bool writable);
 void destroy_frame(void *frame); 
 struct frame_entry* evict_frame(void);
-
+struct frame_entry* lookup_uframe(struct thread *t, void *upage); 
+void unpin_frames(struct thread *t);
 
 #endif

@@ -5,6 +5,7 @@
 #include <list.h>
 #include <hash.h>
 #include "threads/synch.h"
+#include "userprog/syscall.h"
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -125,9 +126,11 @@ struct thread
 
    /*VM Variables*/
    struct hash sup_table; 
+   struct hash mm_table;
    void *esp; 
    void *fault_addr;
    bool on_syscall; 
+   int mapid;
 
 
 
@@ -155,7 +158,14 @@ struct thread
   };
   struct list all_files;
 
+struct mmap_file{
+   mapid_t mapping; 
+   struct file *file; 
+   int length; 
+   int page_span;
 
+   struct hash_elem elem; 
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

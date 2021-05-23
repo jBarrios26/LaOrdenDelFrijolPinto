@@ -45,6 +45,7 @@ create_frame()
         new_frame->frame = frame; 
         new_frame->owner = thread_current();
         new_frame->accessed_time = timer_ticks();
+        new_frame->pinned = false; 
 
         lock_acquire(&lock_frame);
             list_push_back(&frame_table, &new_frame->elem);
@@ -53,6 +54,7 @@ create_frame()
         struct frame_entry *new_frame = evict_frame(); 
         new_frame->owner = thread_current();
         new_frame->accessed_time = timer_ticks(); 
+        new_frame->pinned = false; 
         frame = new_frame->frame;
         
         lock_acquire(&lock_frame);
@@ -157,9 +159,49 @@ lookup_eviction_victim(void)
             continue;
         }
 
-        if ( (ticks - victim->accessed_time) < (ticks -  candidate->accessed_time))
+        if (!candidate->pinned &&  (ticks - victim->accessed_time) < (ticks -  candidate->accessed_time))
             victim = candidate;
     }
 
     return victim;
+}
+
+/*
+    Searches the frame in frame table that it is own by thread t and has user address upage. 
+*/
+struct frame_entry 
+*lookup_uframe(struct thread *t ,void *upage)
+{
+    lock_acquire(&lock_frame);
+    struct list_elem *iter = list_begin(&frame_table); 
+    while (iter != list_end(&frame_table)){
+        struct frame_entry *fte = list_entry(iter, struct frame_entry, elem); 
+        if (fte->owner == t && fte->upage == upage){
+            lock_release(&lock_frame); 
+            return fte; 
+        }
+        iter = list_next(iter); 
+    }
+    lock_release(&lock_frame); 
+    return NULL; 
+}
+
+
+/*
+    Unpins all the pinned frames of thread t.
+*/
+void 
+unpin_frames(struct thread *t)
+{
+    lock_acquire(&lock_frame);
+    struct list_elem *iter = list_begin(&frame_table); 
+    while (iter != list_end(&frame_table)){
+        struct frame_entry *fte = list_entry(iter, struct frame_entry, elem); 
+        if (fte->owner == t && fte->pinned){
+            fte->pinned = false;
+        }
+        iter = list_next(iter); 
+    }
+    lock_release(&lock_frame); 
+
 }

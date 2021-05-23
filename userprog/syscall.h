@@ -2,6 +2,9 @@
 #define USERPROG_SYSCALL_H
 typedef int pid_t;
 
+typedef int mapid_t;
+
+
 void syscall_init (void);
 struct open_file * get_file(int fd);
 void exit(int status);
@@ -15,5 +18,10 @@ int write (int fd, void* buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell (int fd);
 void close(int fd);
+
+
+mapid_t mmap(int fd, void *addr); 
+void unmap(mapid_t mid);
+
 
 #endif /* userprog/syscall.h */

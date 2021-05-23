@@ -21,7 +21,10 @@
 #include "devices/timer.h"
 #include "devices/input.h"
 
+// #ifdef VM
 #include "vm/spage.h"
+#include "vm/frame.h"
+// #endif
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
@@ -243,6 +246,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       fd = *((int*)f->esp + 1); 
       close(fd);
       break;
+    case SYS_MMAP: 
+      if (!verify_pointer((int*)f->esp + 1))
+        exit(-1);
+
+      buffer = (void*)(*((int*)f->esp + 2));
+
+      fd = *((int*)f->esp + 1);
+      buffer = (void*)(*((int*)f->esp + 2));
+
+      f->eax = mmap(fd, buffer);
   }
 
   cur->on_syscall = false; 
@@ -430,6 +443,10 @@ filesize(int fd)
   return size;
 }
 
+/* 
+  Searches fd file in current thread file list and returns open_file pointer if fd is on the list. 
+  If fd file is not on the list, then return NULL pointer.
+*/
 struct open_file 
 *get_file(int fd){
     struct list * opfiles = &thread_current()->files;
@@ -469,6 +486,9 @@ read(int fd, char* buffer, unsigned size)
       buffer[i++] = input_getc();
     read_size = size;
   }
+  #ifdef VM
+  unpin_frames(cur);
+  #endif
   return read_size;
 }
 
@@ -541,6 +561,41 @@ close(int fd)
     free(openfile);
   }
 }
+
+/* Maps a fd file to memory. */
+mapid_t 
+mmap(int fd, void  *addr)
+{
+  struct thread *cur = thread_current();
+  
+  /* Check if fd is STDIN OR STDOUT.*/
+  if (fd == 0 || fd == 1)
+    return -1;
+  
+  /* Check if fd file is in thread file list */
+  struct open_file *mfile = get_file(fd);
+  if (mfile != NULL)
+    return -1;
+
+  /* Check if addr is valid. This means if addr is not NULL, is not zero and it is aligned with page limits. */
+  if (addr == NULL)
+    return -1; 
+  
+  if (addr == 0x0)
+    return -1;
+  
+  if (pg_ofs(addr) != 0)
+    return -1;
+
+  return -1; 
+}
+
+void 
+unmap(mapid_t mapping)
+{
+
+}
+
 
 void 
 delete_parent_from_child(struct hash_elem *elem, void *aux UNUSED)
@@ -615,21 +670,28 @@ preload(void *fault_address, size_t size)
     /* Search the page in supplementary page table. If we found the page and is not loaded then load the page from file or swap. If we don't find 
     the page then need to grow the stack. */
     page= lookup_page(cur, pg_round_down(buffer));
+    bool success = false;
     if (page != NULL && !page->loaded){
       switch (page->type)
       {
       case EXECUTABLE:
-         load_file_page(page);
+         success = load_file_page(page);
          return;
       case PAGE:
-         load_page(page);
+         success = load_page(page);
          break;
       }
     }else if (page == NULL && (cur->esp - 32)  <= buffer){
-      bool success = stack_growth(buffer);
+      success = stack_growth(buffer);
     }else{
       exit(-1);
     }
+
+    struct frame_entry* fte = lookup_uframe(cur, pg_round_down(buffer)); 
+    if (fte == NULL)
+      PANIC("No hay memoria para precargar el buffer"); 
+    
+    fte->pinned = true;
 
     buffer += page_size;
     i++; 
