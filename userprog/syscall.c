@@ -562,6 +562,10 @@ close(int fd)
   }
 }
 
+
+bool check_overlap(struct hash *mmtable, void *base, int length);
+bool check_overlap_existing(void *base, int length); 
+
 /* Maps a fd file to memory. */
 mapid_t 
 mmap(int fd, void  *addr)
@@ -574,8 +578,9 @@ mmap(int fd, void  *addr)
   
   /* Check if fd file is in thread file list */
   struct open_file *mfile = get_file(fd);
-  if (mfile != NULL)
+  if (mfile == NULL)
     return -1;
+  
 
   /* Check if addr is valid. This means if addr is not NULL, is not zero and it is aligned with page limits. */
   if (addr == NULL)
@@ -586,9 +591,86 @@ mmap(int fd, void  *addr)
   
   if (pg_ofs(addr) != 0)
     return -1;
+  
+  int length = file_length(mfile->tfiles); 
+  /* Check if is a zero byte file (length is zero.) */
+  if (length == 0)
+    return -1; 
 
-  return -1; 
+  /* Check if this file overlaps with already memory mapped files. */
+  if (check_overlap(&cur->mm_table, addr,length))
+    return -1; 
+  
+
+  /* Checks if this file overlaps with stack or executable pages.*/
+  if (check_overlap_existing(addr, length))
+    return -1; 
+  
+
+  cur->mapid = cur->mapid++;
+  struct mmap_file *mapping = malloc(sizeof(struct mmap_file));
+  if (!mapping)
+    return -1; 
+  
+  mapping->base = addr;
+  mapping->mapping = cur->mapid; 
+  mapping->file = mfile->tfiles;
+  mapping->length = length; 
+  mapping->page_span = 1;
+
+  hash_insert(&cur->mm_table, &mapping->elem); 
+
+  return cur->mapid; 
 }
+
+/*
+  Checks if the new file map overlaps with existing mappings. For overlap to exists one of the following conditions needs to be true:
+
+    1. e.base <= new.base + new.length <= e.base + e.length
+    2. e.base <= new.base <= e.base + e.lengtg
+
+  If overlap is found returns true.   
+
+*/
+bool 
+check_overlap(struct hash *mmtable, void *base, int length){
+  struct hash_iterator e; 
+  hash_first(&e, mmtable); 
+  while (hash_next(&e))
+  {
+    struct mmap_file *mmfile = hash_entry(hash_cur(&e), struct  mmap_file, elem ); 
+    // printf("Procesando %d: (%p %p) , (%x %x )\n", mmfile->mapping, mmfile->base, base, mmfile->length, length);
+    if (mmfile->base <= base + length && 
+          base + length <= mmfile->base + mmfile->length)
+      return true;
+
+    if (mmfile->base <= base &&
+          base <= mmfile->base + mmfile->length)
+      return true;
+  }
+  return false; 
+}
+
+/*
+  Checks if the mapped file doesn't overlap with already virtual pages of the stack or executable file. 
+
+  Returns true is overlap exists. 
+*/
+bool 
+check_overlap_existing(void *base, int length){
+  struct thread *cur = thread_current();
+  void *addr = base;
+  while (addr <= base + length)
+  {
+    if (lookup_page(cur, addr))
+      return true;
+    
+    addr += PGSIZE;
+  }
+  return false; 
+}
+
+
 
 void 
 unmap(mapid_t mapping)

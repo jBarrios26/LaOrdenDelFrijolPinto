@@ -18,6 +18,7 @@
     "shutdown.h": "c",
     "syscall-nr.h": "c",
     "interrupt.h": "c",
-    "exception.h": "c"
+    "exception.h": "c",
+    "lib.h": "c"
   }
 }

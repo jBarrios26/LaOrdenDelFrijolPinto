@@ -51,7 +51,7 @@ get_page(void *upage, bool writable)
 }
 
 
-bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, void* upage)
+bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, enum Page_Type type, void* upage)
 {
     struct thread *cur = thread_current(); 
     struct  spage_entry *page; 
@@ -64,7 +64,7 @@ bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t z
     page->upage = upage; 
     page->writable = writable;
     page->loaded = false;
-    page->type = EXECUTABLE;
+    page->type = type;
     page->file = NULL;
     page->swap_id = -1; 
     page->in_swap = false; 
@@ -87,7 +87,7 @@ bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t z
 
 bool load_file_page(struct spage_entry *page)
 {
-    ASSERT(page->type == EXECUTABLE);
+    ASSERT(page->type == EXECUTABLE || page->type == MMFILE);
     ASSERT(page->file != NULL); // BRUH este assert me ahorro muchas horas mas haha .
     
     if (page->in_swap)

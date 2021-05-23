@@ -161,6 +161,7 @@ struct thread
 struct mmap_file{
    mapid_t mapping; 
    struct file *file; 
+   void *base;
    int length; 
    int page_span;
 

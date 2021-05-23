@@ -4,9 +4,12 @@
 #include <hash.h>
 #include "filesys/off_t.h"
 #include "threads/thread.h"
+
 /*
     Save all the data related to the process executable file. This data is needed to 
     implement lazy loading, this way we can take this data and used it to load it when is needed. 
+
+    This struct is also used for memory mapped files. writable is always true.
 */
 struct file_page
 {
@@ -25,7 +28,8 @@ struct file_page
  */
 typedef enum {
     PAGE,
-    EXECUTABLE
+    EXECUTABLE,
+    MMFILE
 } Page_Type;
 /*
     The Suplementary Page Entry is a control struct to 
@@ -53,7 +57,7 @@ struct spage_entry
 };
 
 bool get_page(void* upage, bool writable);
-bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, void* upage);
+bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, enum Page_Type type, void* upage);
 
 
 bool load_file_page(struct spage_entry *page);

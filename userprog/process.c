@@ -624,7 +624,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
             return false;
           }
       }else{
-        if (!get_file_page(file, ofs, page_read_bytes, page_zero_bytes, writable, upage))
+        if (!get_file_page(file, ofs, page_read_bytes, page_zero_bytes, writable, EXECUTABLE,  upage))
           return false;
         ofs += page_read_bytes;
       }
