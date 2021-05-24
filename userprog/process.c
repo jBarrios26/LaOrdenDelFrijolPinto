@@ -382,7 +382,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
-
+   bool vm = false;
+  #ifdef
+  vm = true;
+  #endif
+ 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
@@ -468,9 +472,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable, true))
-                goto done;
+
+              if(vm)
+                {  
+                  if (!load_segment (file, file_page, (void *) mem_page,
+                                    read_bytes, zero_bytes, writable, true))
+                        goto done;
+                }else{
+                  if (!load_segment (file, file_page, (void *) mem_page,
+                                    read_bytes, zero_bytes, writable, false))
+                        goto done;           
+                }                                        
             }
           else
             goto done;
