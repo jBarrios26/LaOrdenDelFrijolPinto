@@ -190,6 +190,7 @@ page_fault (struct intr_frame *f)
    {
       switch (page->type)
       {
+      case MMFILE:
       case EXECUTABLE:
          load_file_page(page);
          return;

@@ -57,7 +57,7 @@ struct spage_entry
 };
 
 bool get_page(void* upage, bool writable);
-bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, enum Page_Type type, void* upage);
+bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, Page_Type type, void* upage);
 
 
 bool load_file_page(struct spage_entry *page);
@@ -65,5 +65,6 @@ bool load_page(struct spage_entry *page);
 
 struct spage_entry *lookup_page(struct thread *owner ,void *upage); 
 void destroy_SPtable(struct hash *table);
+void remove_SPentry(struct hash *table, void *upage); 
 
 #endif

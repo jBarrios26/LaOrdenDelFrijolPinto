@@ -26,6 +26,7 @@
 
 #include "vm/spage.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -69,6 +70,10 @@ sptable_destroy(struct hash_elem *elem, void *aux UNUSED)
   struct spage_entry *page = hash_entry(elem, struct spage_entry, elem);
   if (page->file)
     free(page->file);
+
+  if (page->in_swap)
+    swap_free(page->swap_id);
+  
   free(page);
 }
 

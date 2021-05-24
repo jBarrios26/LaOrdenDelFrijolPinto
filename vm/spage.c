@@ -51,7 +51,7 @@ get_page(void *upage, bool writable)
 }
 
 
-bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, enum Page_Type type, void* upage)
+bool get_file_page(struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable, Page_Type type, void* upage)
 {
     struct thread *cur = thread_current(); 
     struct  spage_entry *page; 
@@ -159,4 +159,21 @@ struct spage_entry *lookup_page(struct thread *owner ,void *upage){
     if (spage_elem == NULL)
         return NULL;
     return hash_entry(spage_elem, struct spage_entry, elem);
+}
+
+void remove_SPentry(struct hash *table, void *upage)
+{
+    struct spage_entry e;
+    e.upage = upage; 
+
+    struct hash_elem *page_elem =  hash_delete(table, &e.elem); 
+    struct spage_entry *page = hash_entry(page_elem, struct spage_entry, elem);
+
+    if (page->file)
+        free(page->file); 
+
+    if (page->in_swap)
+        swap_free(page->swap_id);
+
+    free(page);
 }

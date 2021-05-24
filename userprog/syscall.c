@@ -39,7 +39,6 @@ void print_children(struct hash_elem *elem, void *aux);
 static void  preload(void *buffer, size_t size); 
 int calc_pages(void *upage, size_t size);
 
-static struct lock file_system_lock;
 
 
 void 
@@ -256,6 +255,14 @@ syscall_handler (struct intr_frame *f UNUSED)
       buffer = (void*)(*((int*)f->esp + 2));
 
       f->eax = mmap(fd, buffer);
+      break;
+    case SYS_MUNMAP:
+      if (!verify_pointer((int*)f->esp + 1))
+          exit(-1);  
+
+      fd = *((int*)f->esp + 1);
+      unmap((mapid_t)fd);
+      break;
   }
 
   cur->on_syscall = false; 
@@ -572,6 +579,8 @@ mmap(int fd, void  *addr)
 {
   struct thread *cur = thread_current();
   
+  if (!cur)
+    return -1;
   /* Check if fd is STDIN OR STDOUT.*/
   if (fd == 0 || fd == 1)
     return -1;
@@ -592,7 +601,7 @@ mmap(int fd, void  *addr)
   if (pg_ofs(addr) != 0)
     return -1;
   
-  int length = file_length(mfile->tfiles); 
+  off_t length = file_length(mfile->tfiles); 
   /* Check if is a zero byte file (length is zero.) */
   if (length == 0)
     return -1; 
@@ -600,14 +609,37 @@ mmap(int fd, void  *addr)
   /* Check if this file overlaps with already memory mapped files. */
   if (check_overlap(&cur->mm_table, addr,length))
     return -1; 
-  
 
   /* Checks if this file overlaps with stack or executable pages.*/
   if (check_overlap_existing(addr, length))
     return -1; 
   
+  /*At this point file is ready and safe to map*/
+  struct file *mem_file = file_reopen(mfile->tfiles); 
 
-  cur->mapid = cur->mapid++;
+  /* First ask for pages in the supplementary page table, we don't ask for frames because memory mapped files have to be lazy loaded.*/
+  int read_bytes = length; 
+  off_t ofs = 0; 
+  void *base = addr; 
+  int pages = 0;
+  while (read_bytes > 0)
+  {
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+    size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+    if (!get_file_page(mem_file, ofs, page_read_bytes, page_zero_bytes, true, MMFILE,  base))
+          PANIC("No se logro insertar a la SPT"); 
+    
+
+    ofs += page_read_bytes;
+    base += PGSIZE; 
+    read_bytes -= page_read_bytes;
+    pages++; 
+  }
+  /* At this point the whole file is already mapped in the supplementary page table and will be loaded when userprog triggers a page fault.  */
+
+
+  cur->mapid = ++cur->mapid;
   struct mmap_file *mapping = malloc(sizeof(struct mmap_file));
   if (!mapping)
     return -1; 
@@ -616,8 +648,7 @@ mmap(int fd, void  *addr)
   mapping->mapping = cur->mapid; 
   mapping->file = mfile->tfiles;
   mapping->length = length; 
-  mapping->page_span = 1;
-
+  mapping->page_span = pages;
   hash_insert(&cur->mm_table, &mapping->elem); 
 
   return cur->mapid; 
@@ -675,6 +706,52 @@ check_overlap_existing(void *base, int length){
 void 
 unmap(mapid_t mapping)
 {
+
+  struct thread *cur = thread_current();
+  printf("mapping %d", mapping); 
+  struct mmap_file e;
+  e.mapping = mapping;
+
+  struct hash_elem *map_elem = hash_delete(&cur->mm_table, &e.elem);
+  if (!map_elem)
+    return;
+
+  struct mmap_file *mmfile = hash_entry(map_elem, struct mmap_file, elem);
+
+  void *addr = mmfile->base; 
+  size_t read_bytes = mmfile->length; 
+  while(read_bytes > 0)
+  {
+    size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+
+    struct spage_entry *page = lookup_page(cur, addr);
+    if (!page)
+      return; 
+    
+    if (!page->loaded){
+      remove_SPentry(&cur->sup_table, addr);
+      addr += PGSIZE; 
+      continue;
+    }
+    /* Check if page was modified. */
+
+    if (page->loaded && pagedir_is_dirty(cur->pagedir, page->upage)){
+      lock_acquire(&file_system_lock);
+        file_seek(page->file->file, page->file->ofs); 
+        file_write(page->file->file, addr + page->file->ofs , page->file->read_bytes);
+      lock_release(&file_system_lock);
+    }
+
+    struct frame_entry *fte =  lookup_uframe(cur ,page->upage); 
+    destroy_frame(fte->frame);
+    remove_SPentry(&cur->sup_table, addr);
+    read_bytes -= page_read_bytes;
+    addr += PGSIZE;
+  } 
+
+  file_close(mmfile->file);
+  free(mmfile);
+
 
 }
 
@@ -768,6 +845,9 @@ preload(void *fault_address, size_t size)
     }else{
       exit(-1);
     }
+
+    if (!success)
+      PANIC("No se logro cargar la página.");
 
     struct frame_entry* fte = lookup_uframe(cur, pg_round_down(buffer)); 
     if (fte == NULL)

@@ -59,8 +59,13 @@ swap_allocate(void *frame)
 void 
 swap_deallocate(void *frame, size_t idx)
 {
-    bitmap_scan_and_flip(swap_table, idx, BLOCKS_PER_PAGE, true);
+    swap_free(idx);
     swap_read(frame, idx); 
+}
+
+void swap_free(size_t idx)
+{
+    bitmap_scan_and_flip(swap_table, idx, BLOCKS_PER_PAGE, true);
 }
 
 

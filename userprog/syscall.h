@@ -5,6 +5,7 @@ typedef int pid_t;
 typedef int mapid_t;
 
 
+static struct lock file_system_lock;
 void syscall_init (void);
 struct open_file * get_file(int fd);
 void exit(int status);
