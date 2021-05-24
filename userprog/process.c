@@ -236,7 +236,7 @@ process_wait (tid_t child_tid)
       cond_wait(&cur->wait_cond, &cur->wait_lock);
     }
   lock_release(&cur->wait_lock);
-  child_control->parent_waited = true;
+ // child_control->parent_waited = true;
   return child_control->status;
 }
 
@@ -383,7 +383,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
    bool vm = false;
-  #ifdef
+  #ifdef VM
   vm = true;
   #endif
  
@@ -635,7 +635,7 @@ setup_stack (void **esp, char *args, char *name)
   // int start_stack = 0;
   bool success = false;
   bool vm = false;
-  #ifdef
+  #ifdef VM
   vm = true;
   #endif
   if(vm)

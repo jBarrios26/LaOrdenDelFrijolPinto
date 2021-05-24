@@ -1,4 +1,4 @@
-#ifdef vm
+#ifdef VM
 #include "vm/frame.h"
 #include "vm/swap.h"
 #include "vm/spage.h"
