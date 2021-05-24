@@ -100,9 +100,9 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
-  list_init (&wait_sleeping_list);
   list_init (&all_list);
-  list_init(&all_files);
+  list_init (&all_files);
+  list_init (&wait_sleeping_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -381,9 +381,8 @@ remover_thread_durmiente(int64_t ticks)
     if(ticks >= thread_lista_espera->time_sleeping){
       iter = list_remove(iter);               /* Removes the thread from wait_sleeping_list. */
       thread_unblock(thread_lista_espera);    /* Unblocks the thread. i.e. Put the thread back in the ready_list. */
-    }
     /* Else, continues with the next thread. */
-    else{
+    }else{
       iter = list_next(iter);
     }
   }

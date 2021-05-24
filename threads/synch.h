@@ -45,14 +45,15 @@ struct lock
     struct donation *donated;   /* This structure has all the donation information of the current thread. */
   };
 
+struct list_elem *find_lock (struct list *donations, struct lock *lock);
+int print_donos(struct list *donations);
+
 void lock_init (struct lock *);
 void lock_acquire (struct lock *);
 bool lock_try_acquire (struct lock *);
 void lock_release (struct lock *);
 bool lock_held_by_current_thread (const struct lock *);
 
-struct list_elem *find_lock (struct list *donations, struct lock *lock);
-int print_donos(struct list *donations);
 
 /* Condition variable. */
 /* Monitors have a higher abstraction level than locks or semaphores.
