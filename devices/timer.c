@@ -163,17 +163,17 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
+//
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  remover_thread_durmiente(ticks);
+  remover_thread_durmiente(ticks);    /* Removes a thread from the wait_sleeping_list. */
 
-  // si el status del thread esta en running, entonces le suma un tick al recent_cpu
-  // si es
+  // Si el status del thread esta en running, entonces le suma un tick al recent_cpu
   if (thread_mlfqs){
     struct thread *cur;
     cur = thread_current ();
@@ -181,7 +181,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
         {
           cur->recent_cpu = ADD_FP_INT (cur->recent_cpu, 1);
         }
-      if (ticks % TIMER_FREQ == 0)    //el recent_cpu se tiene que calcular justo en este momento
+      if (ticks % TIMER_FREQ == 0)    // El recent_cpu se tiene que calcular justo en este momento
         {
           calculate_load_avg ();      
           all_threads_recent_cpu ();

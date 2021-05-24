@@ -24,6 +24,7 @@
 
 static int load_avg;          
 
+/* List of processes wainting for their sleeping time to end. */
 static struct list wait_sleeping_list;
 
 /* List of processes in THREAD_READY state, that is, processes
@@ -66,7 +67,6 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 bool thread_mlfqs;
 
 static void kernel_thread (thread_func *, void *aux);
-
 static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
@@ -100,16 +100,16 @@ thread_init (void)
 
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init (&wait_sleeping_list);
   list_init (&all_list);
   list_init(&all_files);
-  list_init (&wait_sleeping_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  load_avg = 0;   // se inicializa en 0
+  load_avg = 0;                 /* Default value 0 */
 
 }
 
@@ -264,9 +264,10 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
+
+  /* Inserts the thread to the ready_list based on its priority. */
   list_insert_ordered(&ready_list, &t->elem, priority_value_less, NULL);
-  
-  //list_push_back (&ready_list, &t->elem);
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -345,62 +346,50 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
-/* Inserta un thread en la lista de espera */
+/* Inserts a thread into the wait_sleeping_list. */
 void 
 insert_in_waiting_list(int64_t ticks)
 {
-
-  //Deshabilitamos interrupciones
+  /* Disable interruptions. */
   enum intr_level old_level;
   old_level = intr_disable ();
 
-  /* Remover el thread actual de "ready_list" e insertarlo en "lista_espera"
-  Cambiar su estatus a THREAD_BLOCKED, y definir su tiempo de expiracion */
-  
+  /* Remove current thread from "ready_list" and insert int to "wait_sleeping_list". 
+     Change thread status to THREAD_BLOCKED and define sleeping time. */  
   struct thread *thread_actual = thread_current ();
-  thread_actual->time_sleeping = timer_ticks() + ticks;
-  
-  /*Donde TIEMPO_DORMIDO es el atributo de la estructura thread que usted
-    definió como paso inicial*/
-  
+  thread_actual->time_sleeping = timer_ticks() + ticks;  
   list_push_back(&wait_sleeping_list, &thread_actual->elem);
   thread_block();
 
-  //Habilitar interrupciones
+  /* Enable interruptions. */
   intr_set_level (old_level);
 }
 
-/* Remueve un thread de la lista de espera */
-
+/* Removes a thread from the wait_sleeping_list. */
 void 
 remover_thread_durmiente(int64_t ticks)
 {
-
-  /*Cuando ocurra un timer_interrupt, si el tiempo del thread ha expirado
-  Se mueve de regreso a ready_list, con la funcion thread_unblock*/
+  /* When a timer_interrupt occurs, if time_sleeping has passed then the thread is 
+     unblocked and put back to the ready_list. */
   
-  //Iterar sobre "lista_espera"
+  /* Go through wait_sleeping_list*/
   struct list_elem *iter = list_begin(&wait_sleeping_list);
   while(iter != list_end(&wait_sleeping_list) ){
-    struct thread *thread_lista_espera = list_entry(iter, struct thread, elem);
+    struct thread *thread_lista_espera = list_entry(iter, struct thread, elem);    
     
-    /*Si el tiempo global es mayor al tiempo que el thread permanecía dormido
-      entonces su tiempo de dormir ha expirado*/
-    
+    /* If ticks is grater than the thread's time_sleeping then it needs to be awakened. */
     if(ticks >= thread_lista_espera->time_sleeping){
-      //Lo removemos de "lista_espera" y lo regresamos a ready_list
-      iter = list_remove(iter);
-      thread_unblock(thread_lista_espera);
-    }else{
-      //Sino, seguir iterando
+      iter = list_remove(iter);               /* Removes the thread from wait_sleeping_list. */
+      thread_unblock(thread_lista_espera);    /* Unblocks the thread. i.e. Put the thread back in the ready_list. */
+    }
+    /* Else, continues with the next thread. */
+    else{
       iter = list_next(iter);
     }
   }
 }
 
-/*
-  Gets the max priority thread in ready list.
-*/
+/* Gets the max priority thread in ready list. */
 static struct thread 
 *get_max_priority_thread()
 {
@@ -643,7 +632,9 @@ thread_get_recent_cpu (void)
   return CONVERT_TO_INT_NEAREST(MULTI_FP_INT(thread_current()->recent_cpu,100));
 }
 
-
+/* The list a_ is ordered from lower priority to upper priority, if two priorities are the same
+   the order of arrival is preserved. 
+   This means that the highest priority is at the back of the list. */
 bool 
 priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void *aux UNUSED)
 {
@@ -652,6 +643,7 @@ priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void
 
   return a->priority <= b->priority;
 }
+
 /* Idle thread.  Executes when no other thread is ready to run.
    The idle thread is initially put on the ready list by
    thread_start().  It will be scheduled once initially, at which
