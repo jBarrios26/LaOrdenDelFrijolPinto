@@ -335,7 +335,19 @@ exit(int status)
     iter = list_next(iter);
     close(op_file->fd);
   }
-  
+
+  #ifdef VM  
+  struct hash_iterator e; 
+  hash_first(&e, &cur->mm_table); 
+  struct hash_elem *mmiter = hash_next(&e);
+  while (mmiter)
+  {
+    struct mmap_file *mmfile = hash_entry(hash_cur(&e), struct  mmap_file, elem ); 
+    mmiter = hash_next(&e); 
+    unmap(mmfile->mapping); 
+  }
+  #endif
+
   thread_exit();
 }
 
@@ -646,7 +658,7 @@ mmap(int fd, void  *addr)
   
   mapping->base = addr;
   mapping->mapping = cur->mapid; 
-  mapping->file = mfile->tfiles;
+  mapping->file = mem_file;
   mapping->length = length; 
   mapping->page_span = pages;
   hash_insert(&cur->mm_table, &mapping->elem); 
@@ -708,7 +720,6 @@ unmap(mapid_t mapping)
 {
 
   struct thread *cur = thread_current();
-  printf("mapping %d", mapping); 
   struct mmap_file e;
   e.mapping = mapping;
 
@@ -720,6 +731,7 @@ unmap(mapid_t mapping)
 
   void *addr = mmfile->base; 
   size_t read_bytes = mmfile->length; 
+  // preload(addr, read_bytes); 
   while(read_bytes > 0)
   {
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
@@ -741,15 +753,17 @@ unmap(mapid_t mapping)
         file_write(page->file->file, addr + page->file->ofs , page->file->read_bytes);
       lock_release(&file_system_lock);
     }
-
-    struct frame_entry *fte =  lookup_uframe(cur ,page->upage); 
+    
+    pagedir_clear_page(cur->pagedir, page->upage);
+    struct frame_entry *fte = lookup_uframe(cur, page->upage);
     destroy_frame(fte->frame);
     remove_SPentry(&cur->sup_table, addr);
     read_bytes -= page_read_bytes;
     addr += PGSIZE;
   } 
-
+  lock_acquire(&file_system_lock);
   file_close(mmfile->file);
+  lock_release(&file_system_lock);
   free(mmfile);
 
 
