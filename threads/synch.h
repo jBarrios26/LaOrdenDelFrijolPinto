@@ -57,7 +57,7 @@ bool lock_held_by_current_thread (const struct lock *);
 
 /* Condition variable. */
 /* Monitors have a higher abstraction level than locks or semaphores.
-   The execution proccess of a condition variable is described as follows:
+   The execution process of a condition variable is described as follows:
    1. A lock is set over a critical section.
    2. Information is modified.
    3. The condiotion variable is verified, if not satisfied then the thread is put to sleep with the lock held.

@@ -111,14 +111,13 @@ struct thread
     int original_priority;              /* Original priority of the thread prior to the donation. */
 
     /* Process variables */
-    int child_cor;
-    tid_t parent;
-    tid_t child_waiting;
-    bool child_load;
-    bool child_status;
-    bool children_init;
-    struct hash children;
-    struct semaphore exec_sema; 
+    tid_t parent;                       /* Current thread's paret thread. */
+    tid_t child_waiting;                /* Thread child the current process is waiting for. */
+    bool child_load;                    /* State variable indicating success or failure at load time. */
+    bool child_status;                  /* State variable indicating success or failure at execution time. */
+    bool children_init;                 /* State variable indicating if the thread's hashmap has been initialized. */
+    struct hash children;               /* A hashmap of all the children threads of the current thread. */
+    struct semaphore exec_sema;         /* Semaphore used to tell the parent thread if the child successfully loaded a child thread. */
 
     struct lock wait_lock;
     struct condition wait_cond; 
@@ -129,23 +128,25 @@ struct thread
 #endif
 
     /* Used in syscall open. */
-     int fd_next;                       /* ID of fiel descriptor*/
-     struct list files;
-     int fd_exec;
+     int fd_next;                       /* ID of file descriptor*/
+     struct list files;                 /* List with all the files from a thread. */
+     int fd_exec;                       /* Contains the file descriptor of the executable file for the process. Has default value of -1. */
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    int nice;                           /* Nice*/
-    int recent_cpu;                     /* Recent CPU*/
+    int nice;                           /* Nice. Will be used in the MLFQS scheduler to select which thread will run next. */
+    int recent_cpu;                     /* Recent CPU. An estimate for the recent cpu time the current thread has used. */
   };
 
   struct open_file{
-    int fd;
-    char* name;
-    struct file *tfiles;
-    struct list_elem af;
-    struct list_elem at;
+    int fd;                             /* File descriptor ID. */
+    char* name;                         /* File's name. */
+    struct file *tfiles;                /* Pointer to the file the file descriptor is pointing to. */
+    struct list_elem at;                /* List element to add the file to the thread's file list. */
+    struct list_elem af;                /* List element to add the file to a list with all the files. */
   };
-  struct list all_files;
+
+  struct list all_files;                /* List with all the files. */
 
 
 
@@ -188,7 +189,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-/* Para advance priority */ 
+/* Advance priority */ 
 void recalculate_priority(struct thread *, void *aux);
 void calculate_load_avg(void);
 void calculate_recent_cpu(struct thread *, void *aux);
