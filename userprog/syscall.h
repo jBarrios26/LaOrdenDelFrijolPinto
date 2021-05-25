@@ -1,9 +1,9 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 typedef int pid_t;
-
+#ifdef VM
 typedef int mapid_t;
-
+#endif
 
 static struct lock file_system_lock;
 void syscall_init (void);
@@ -20,9 +20,9 @@ void seek(int fd, unsigned position);
 unsigned tell (int fd);
 void close(int fd);
 
-
+#ifdef VM
 mapid_t mmap(int fd, void *addr); 
 void unmap(mapid_t mid);
-
+#endif
 
 #endif /* userprog/syscall.h */

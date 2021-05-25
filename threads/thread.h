@@ -112,6 +112,7 @@ struct thread
     int original_priority;
 
     /* Process variables */
+#ifdef USERPROG
     int child_cor;
     tid_t parent;
     tid_t child_waiting;
@@ -123,15 +124,20 @@ struct thread
 
     struct lock wait_lock;
     struct condition wait_cond; 
-
+   /* Used in syscall open. */
+   int fd_next;                             /* ID of fiel descriptor*/
+   struct list files;
+   int fd_exec;
+#endif
    /*VM Variables*/
+#ifdef VM
    struct hash sup_table; 
    struct hash mm_table;
    void *esp; 
    void *fault_addr;
    bool on_syscall; 
    int mapid;
-
+#endif
 
 
 #ifdef USERPROG
@@ -139,14 +145,10 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
-    /* Used in syscall open. */
-     int fd_next;                             /* ID of fiel descriptor*/
-     struct list files;
-     int fd_exec;
     /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
     int nice;                           /* Nice*/
     int recent_cpu;                     /* Recent CPU*/
+    unsigned magic;                     /* Detects stack overflow. */
   };
 
   struct open_file{
@@ -158,6 +160,7 @@ struct thread
   };
   struct list all_files;
 
+#ifdef VM
 struct mmap_file{
    mapid_t mapping; 
    struct file *file; 
@@ -167,6 +170,8 @@ struct mmap_file{
 
    struct hash_elem elem; 
 };
+
+#endif
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

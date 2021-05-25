@@ -16,9 +16,11 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+
+#ifdef VM
 #include "vm/frame.h"
 #include "vm/swap.h"
-
+#endif
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -106,8 +108,9 @@ thread_init (void)
   list_init(&all_files);
   list_init (&wait_sleeping_list);
 
+#ifdef VM
   frame_init();
-  
+#endif
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -199,7 +202,9 @@ thread_create (const char *name, int priority,
 
   /* Initialize thread. */
   init_thread (t, name, priority);
+#ifdef USERPROG
   t->parent = cur->tid;
+#endif
   tid = t->tid = allocate_tid ();
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -654,6 +659,9 @@ priority_value_less(const struct list_elem *a_, const struct list_elem *b_, void
   const struct thread *a = list_entry (a_, struct thread, elem);
   const struct thread *b = list_entry (b_, struct thread, elem);
 
+#ifdef VM
+  return a->priority < b->priority;
+#endif
   return a->priority <= b->priority;
 }
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -744,12 +752,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->original_priority = priority;
+  list_init(&t->locks);
+  list_init(&t->donations);
+#ifdef USERPROG
   t->waiting = NULL;
   t->children_init=false;
   t->fd_next = 2;
   t->fd_exec = -1;
-  list_init(&t->locks);
-  list_init(&t->donations);
   list_init (&t->files);
   sema_init(&t->exec_sema, 0);
   // sema_init(&t->wait_sema, 0);
@@ -758,10 +767,13 @@ init_thread (struct thread *t, const char *name, int priority)
   lock_init(&t->wait_lock);
   cond_init(&t->wait_cond);
 
+#endif
+#ifdef VM
   t->esp = NULL; 
   t->fault_addr = NULL; 
   t->on_syscall = false;
   t->mapid = 0; 
+#endif
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

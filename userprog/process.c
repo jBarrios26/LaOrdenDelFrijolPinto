@@ -24,9 +24,11 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 
+#ifdef VM
 #include "vm/spage.h"
 #include "vm/frame.h"
 #include "vm/swap.h"
+#endif
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -49,6 +51,7 @@ static bool childres_hash_less (const struct hash_elem *a, const struct hash_ele
   return a_->pid < b_->pid;
 }
 
+#ifdef VM
 static unsigned
 sptable_hash(const struct hash_elem *elem_, void *aux UNUSED)
 {
@@ -99,6 +102,8 @@ mmtable_destroy(struct hash_elem *elem, void *aux UNUSED)
   struct mmap_file *mmfile = hash_entry(elem, struct mmap_file, elem);
   free(mmfile);
 }
+
+#endif
 
 
 
@@ -410,6 +415,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
+  bool vm_flag = false;
+
+#ifdef VM
+  vm_flag = true; 
+#endif
   int i;
 
   /* Allocate and activate page directory. */
@@ -498,7 +508,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable, true))
+                                 read_bytes, zero_bytes, writable, vm_flag))
                 goto done;
             }
           else
@@ -629,8 +639,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
             return false;
           }
       }else{
+        #ifdef VM
         if (!get_file_page(file, ofs, page_read_bytes, page_zero_bytes, writable, EXECUTABLE,  upage))
           return false;
+        #endif
         ofs += page_read_bytes;
       }
       /* Advance. */
@@ -650,14 +662,29 @@ setup_stack (void **esp, char *args, char *name)
   // char *token;
   // char *save_ptr;
   // int start_stack = 0;
+  bool vm_flag = false; 
+#ifdef VM
+  vm_flag = true;
+#endif
   bool success = false;
-  kpage = create_frame(); 
+  if (vm_flag)
+    kpage = create_frame(); 
+  else
+    kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+  
   if (kpage != NULL)
   {
-    success = install_frame(kpage, ((uint8_t*)PHYS_BASE) - PGSIZE , true );
+    if (vm_flag)
+      success = install_frame(kpage, ((uint8_t*)PHYS_BASE) - PGSIZE , true );
+    else 
+      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+
     if (success)
     { 
+      #ifdef VM
       get_page(((uint8_t*)PHYS_BASE - PGSIZE), true);
+      #endif
+
       *esp = PHYS_BASE;
       /* SETUP args in stack*/
       char *reverse, *aux = "";
@@ -702,7 +729,10 @@ setup_stack (void **esp, char *args, char *name)
       palloc_free_page(aux);
       palloc_free_page(reverse);
     }else{
-      destroy_frame(kpage);
+      if (vm_flag)
+        destroy_frame(kpage);
+      else
+        palloc_free_page (kpage);
     }
   }
 

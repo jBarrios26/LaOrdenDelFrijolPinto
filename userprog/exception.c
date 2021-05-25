@@ -146,6 +146,7 @@ page_fault (struct intr_frame *f)
 
   /* Turn interrupts back on (they were only off so that we could
      be assured of reading CR2 before it changed). */
+#ifdef VM
    uint64_t ticks = timer_ticks();
    for (struct list_elem *iter = list_begin(&frame_table); iter != list_end(&frame_table); iter = list_next(iter))
    {
@@ -156,7 +157,7 @@ page_fault (struct intr_frame *f)
        pagedir_set_accessed(frame->owner->pagedir, frame->upage, false);
      }
    }   
-
+#endif
 
   intr_enable ();
   /* Count page faults. */
@@ -165,10 +166,10 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+#ifdef VM
   fault_addr = (cur->on_syscall) ? cur->fault_addr : fault_addr;
-  
   void *esp = (cur->on_syscall) ? cur->esp : f->esp;
-
+#endif
    /* Write to ReadOnly page. */ 
    if (!not_present)
       exit(-1); 
@@ -183,8 +184,22 @@ page_fault (struct intr_frame *f)
       exit(-1);
    }
 
- 
+bool vm = false;
+#ifdef VM
+   vm = true;
+#endif
 
+   if (!vm)
+   {
+      printf ("Page fault at %p: %s error %s page in %s context.\n",
+               fault_addr,
+               not_present ? "not present" : "rights violation",
+               write ? "writing" : "reading",
+               user ? "user" : "kernel");
+      kill (f);
+   }
+
+#ifdef VM   
    struct spage_entry *page = lookup_page(cur, pg_round_down(fault_addr));
    if (page != NULL && !page->loaded)
    {
@@ -220,9 +235,10 @@ page_fault (struct intr_frame *f)
                user ? "user" : "kernel");
       kill (f);
    }
-   
+#endif
 }
 
+#ifdef VM
 bool stack_growth(void *fault_address)
 {
    void *upage = pg_round_down(fault_address); 
@@ -239,3 +255,4 @@ bool stack_growth(void *fault_address)
    }else 
       return false; 
 }
+#endif

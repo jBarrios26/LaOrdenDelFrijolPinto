@@ -21,10 +21,10 @@
 #include "devices/timer.h"
 #include "devices/input.h"
 
-// #ifdef VM
+#ifdef VM
 #include "vm/spage.h"
 #include "vm/frame.h"
-// #endif
+#endif
 
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
@@ -36,9 +36,10 @@ void delete_children(struct hash_elem *elem, void *aux);
 void delete_parent_from_child(struct hash_elem *elem, void *aux);
 void print_children(struct hash_elem *elem, void *aux);
 
+#ifdef VM
 static void  preload(void *buffer, size_t size); 
 int calc_pages(void *upage, size_t size);
-
+#endif
 
 
 void 
@@ -93,9 +94,10 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
     exit(-1);
   }
-
+#ifdef VM
   cur->esp = f->esp;
   cur->on_syscall = true;
+#endif
 
   switch (*(int*)f->esp){
     case SYS_HALT:
@@ -245,6 +247,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       fd = *((int*)f->esp + 1); 
       close(fd);
       break;
+#ifdef VM
     case SYS_MMAP: 
       if (!verify_pointer((int*)f->esp + 1))
         exit(-1);
@@ -263,11 +266,13 @@ syscall_handler (struct intr_frame *f UNUSED)
       fd = *((int*)f->esp + 1);
       unmap((mapid_t)fd);
       break;
+#endif
   }
-
+#ifdef VM
   cur->on_syscall = false; 
   cur->esp = NULL; 
   cur->fault_addr = NULL;
+#endif
 }
 
 
@@ -487,9 +492,10 @@ read(int fd, char* buffer, unsigned size)
   int read_size = -1;
 
   struct thread *cur = thread_current(); 
+#ifdef VM
   cur->fault_addr = buffer;
-
   preload(buffer, size);
+#endif
   if (fd){    
     struct open_file *opened_file = get_file(fd);
     if (opened_file != NULL){
@@ -516,13 +522,18 @@ write (int fd, void* buffer, unsigned size)
 {
 
   struct thread *cur = thread_current(); 
+#ifdef VM
   cur->fault_addr = buffer;
   preload(buffer, size);
+#endif
   if (fd == STDIN_FILENO){
     return 0;
   }
   else if (fd == STDOUT_FILENO){
     putbuf((char*) buffer, size);
+#ifdef VM
+    unpin_frames(cur);
+#endif
     return size;
   }else{
     struct open_file *opfile = get_file(fd);
@@ -532,6 +543,9 @@ write (int fd, void* buffer, unsigned size)
     lock_acquire(&file_system_lock);
     written_bytes = file_write(opfile->tfiles, buffer, size);
     lock_release(&file_system_lock);
+#ifdef VM
+    unpin_frames(cur);
+#endif
     return written_bytes;
   }
 }
@@ -581,7 +595,7 @@ close(int fd)
   }
 }
 
-
+#ifdef VM
 bool check_overlap(struct hash *mmtable, void *base, int length);
 bool check_overlap_existing(void *base, int length); 
 
@@ -769,6 +783,8 @@ unmap(mapid_t mapping)
 
 }
 
+#endif
+
 
 void 
 delete_parent_from_child(struct hash_elem *elem, void *aux UNUSED)
@@ -790,7 +806,7 @@ delete_children(struct hash_elem *elem, void *aux UNUSED)
   free(child);
 }
 
-
+#ifdef VM
 int calc_pages(void *upage, size_t size)
 {
   size_t allocated = 0;
@@ -873,3 +889,5 @@ preload(void *fault_address, size_t size)
     i++; 
   }
 }
+
+#endif

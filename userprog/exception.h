@@ -8,5 +8,8 @@
 #include "stdbool.h"
 void exception_init (void);
 void exception_print_stats (void);
+#ifdef VM
 bool stack_growth(void *fault_address);
+#endif
+
 #endif /* userprog/exception.h */
