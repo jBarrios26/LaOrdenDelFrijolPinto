@@ -95,14 +95,13 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    
-    struct list_elem allelem;           /* List element for all threads list. */
-  
+    int priority;                       /* Priority. Will change as donations come. */
+    struct list_elem allelem;           /* List element for all threads list. */  
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    int64_t time_sleeping;              /* Tiempo que duerme un thread*/
+    /* Alarm Clok implementation. */
+    int64_t time_sleeping;              /* Sleeping time for the thread. */
 
     /* Synchonization variables */
     struct lock *waiting; 
@@ -152,13 +151,14 @@ struct thread
   };
 
   struct open_file{
-    int fd;
-    char* name;
-    struct file *tfiles;
-    struct list_elem af;
-    struct list_elem at;
+    int fd;                             /* File descriptor ID. */
+    char* name;                         /* File's name. */
+    struct file *tfiles;                /* Pointer to the file the file descriptor is pointing to. */
+    struct list_elem at;                /* List element to add the file to the thread's file list. */
+    struct list_elem af;                /* List element to add the file to a list with all the files. */
   };
-  struct list all_files;
+
+  struct list all_files;                /* List with all the files. */
 
 #ifdef VM
 struct mmap_file{
@@ -212,7 +212,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-/* Para advance priority */ 
+/* Advance priority */ 
 void recalculate_priority(struct thread *, void *aux);
 void calculate_load_avg(void);
 void calculate_recent_cpu(struct thread *, void *aux);

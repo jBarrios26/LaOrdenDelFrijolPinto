@@ -166,14 +166,15 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
+//
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  remover_thread_durmiente(ticks);
+  remover_thread_durmiente(ticks);    /* Removes a thread from the wait_sleeping_list. */
 
   // si el status del thread esta en running, entonces le suma un tick al recent_cpu  
   // si es

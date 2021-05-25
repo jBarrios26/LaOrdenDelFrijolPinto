@@ -3,12 +3,10 @@
 
 #include "threads/thread.h"
 #include "hash.h"
-/*
-    Define the status of a child process.
-    When the child stops he updates this variables to comunicate 
-    to it's parent, the status and that it has finished.
-*/
-struct children_process{
+    /* Control block to define the status of a child process.
+       When the child process finishes it up updates this variables to comunicate 
+       to it's parent*/
+    struct children_process{
     struct hash_elem elem;
     int child_id;
     int pid; 

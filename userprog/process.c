@@ -124,12 +124,11 @@ process_execute (const char *file_name)
   args = palloc_get_page (PAL_USER | PAL_ZERO);
   if (fn_copy == NULL || args == NULL)
     return TID_ERROR;
+
   strlcpy (fn_copy, file_name, PGSIZE);
-  /* Get filename */
-  name = strtok_r (fn_copy, " ", &save_ptr);
+  name = strtok_r (fn_copy, " ", &save_ptr);                      /* Get filename */
   strlcpy(args, save_ptr, strlen(file_name) - strlen(name));
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (name, PRI_DEFAULT, start_process,args);
+  tid = thread_create (name, PRI_DEFAULT, start_process,args);    /* Create a new thread to execute FILE_NAME. */
 
   if (tid == -1){
     palloc_free_page(fn_copy);
@@ -182,15 +181,11 @@ start_process (void *file_name_)
 
 
   /* Need to check if load was successful and signal the parent thread.
-     Need to use the synchronization variables defined on the parent thread.
-  */
+     Need to use the synchronization variables defined on the parent thread. */
   hash_init(&cur->children, children_hash, childres_hash_less, NULL);
   cur->children_init = true;
   struct thread* parent = get_thread(cur->parent);
-  // struct children_process child;
-  // child.pid = cur->tid;
-  // struct hash_elem *child_elem = hash_find(&cur->children, &child.elem);
-
+ 
   if (parent != NULL  ){
   /* Acquire lock from parent to modify state variables and signal him.*/
     if (!success)
@@ -698,31 +693,34 @@ setup_stack (void **esp, char *args, char *name)
         return success;
       }
 
+      /* Step 2. Reverse args, create an array for the addresses. Push the reversed args. */
       int argc = reverse_args(args, reverse, aux); 
-
       void *addresses[argc + 1];
-      
       push_args(reverse, esp, addresses); 
       
+      /* Step 3. Push the file name into the addreses array. */
       argc = push_name(name, esp, addresses, argc); 
-
-      // Align memory.
+      
+      /* Step 4. Align memory. */
       align_mem(esp); 
 
-      // Write argv addresses.
+      /* Step 5. Write argv addresses. */
       *esp -= 4;
       memset (*esp, 0, 4);
 
+      /* Step 6. Push array into the stack. */
       push_addresses(esp, addresses, argc); 
 
-      // push argv[0] address
+      /* Step 7. Push argv[0] address */
       void *argv0 = *esp;
       *esp -= sizeof(char**);
       memcpy(*esp, &argv0, sizeof(char**));
 
+      /* Step 8. */
       *esp-=sizeof(argc);
       memcpy(*esp, &argc, 4);
 
+      /* Step 9. */
       *esp -= sizeof(void*);
       memset(*esp, 0, sizeof(void*));
 
