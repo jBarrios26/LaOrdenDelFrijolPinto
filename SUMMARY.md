@@ -20,6 +20,9 @@
 
 * [Frame Table](vm/frame-table.md)
 * [Suplementary Page Table](vm/suplementary-page-table.md)
+* [Swap Table](vm/swap-table.md)
+* [Lazy Loading](vm/lazy-loading.md)
+* [Stack Growth](vm/stack-growth.md)
 
 ---
 
