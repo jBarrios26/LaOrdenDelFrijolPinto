@@ -6,14 +6,14 @@ description: >-
 
 # La Orden Del Frijol Pinto
 
-## Proyecto de CC VII. Sistema Operativo PintOs
+## Sistema Operativo PintOs - Standford
+
+Integrantes:
 
 * Jorge Barrios ¯\\_\(ツ\)\_/¯ 
 * Carlos Gálvez \(☞ﾟヮﾟ\)☞
 * JP Rodríguez \(●'◡'●\)
 * Gizeh García. ༼ つ ◕\_◕ ༽つ
-
-Integrantes:
 
 ![Los Caballeros Dorados](.gitbook/assets/image%20%282%29.png)
 
