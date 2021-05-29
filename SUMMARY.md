@@ -16,3 +16,12 @@
 * [System Calls](userprog/syscalls.md)
 * [Extras](userprog/extras.md)
 
+## VM
+
+* [Frame Table](vm/frame-table.md)
+* [Suplementary Page Table](vm/suplementary-page-table.md)
+
+---
+
+* [Resultados](resultados.md)
+
